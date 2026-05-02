@@ -1,8 +1,8 @@
 /**
  * Antigravity Cockpit - Cockpit Tools All Accounts Tab
  *
- * Renders a unified view of every account stored in ~/.antigravity_cockpit/:
- *   Antigravity AI, OpenAI Codex, Cursor, GitHub Copilot.
+ * Renders a unified view of every account stored in ~/.antigravity_cockpit/
+ * across all providers currently exported by Cockpit Tools.
  *
  * Message protocol (extension → webview):
  *   { type: 'cockpitToolsUpdate', data: AllCockpitAccountsSnapshot }
@@ -73,6 +73,15 @@
             case 'codex': return '#10a37f';
             case 'cursor': return '#3b82f6';
             case 'github_copilot': return '#e8761a';
+            case 'windsurf': return '#0f766e';
+            case 'kiro': return '#7c3aed';
+            case 'gemini': return '#0ea5e9';
+            case 'codebuddy': return '#2563eb';
+            case 'codebuddy_cn': return '#dc2626';
+            case 'workbuddy': return '#9333ea';
+            case 'qoder': return '#ca8a04';
+            case 'trae': return '#db2777';
+            case 'zed': return '#111827';
             default: return '#6b7280';
         }
     }

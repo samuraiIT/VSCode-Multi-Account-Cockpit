@@ -1,5 +1,17 @@
 # Versions
 
+## 20260503-021300-cockpit-tools-webview-providers
+
+- Base commit: `948f9e7`
+- Status: `completed`
+- Scope:
+  - aligned Cockpit Tools webview presentation with expanded provider support
+- Changed source files:
+  - `src/view/webview/cockpit_tools.js`
+- Backup:
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-021300-cockpit-tools-webview-providers/changed-files.patch`
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-021300-cockpit-tools-webview-providers/rollback.md`
+
 ## 20260503-020600-storage-manager-cleanup
 
 - Base commit: `0340ece`

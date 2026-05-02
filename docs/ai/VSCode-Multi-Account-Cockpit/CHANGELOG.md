@@ -1,5 +1,10 @@
 # AI Change Log
 
+## 20260503-021300-cockpit-tools-webview-providers
+
+- Updated the Cockpit Tools webview copy to reflect that it now renders all supported exported providers instead of only the original fixed set.
+- Added color mapping entries for the newly surfaced Cockpit Tools providers so the section headers remain visually distinct.
+
 ## 20260503-020600-storage-manager-cleanup
 
 - Split a focused cleanup slice out of the remaining storage-manager worktree.
