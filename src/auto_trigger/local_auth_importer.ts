@@ -389,6 +389,10 @@ export async function ensureLocalCredentialImported(
 
 
         await credentialStorage.saveCredential(credential);
+        if (!credential.email) {
+            logger.debug('[LocalAuth] Imported credential is missing email');
+            return null;
+        }
         logger.info(`[LocalAuth] resolved account: ${credential.email}`);
         logger.info(`[LocalAuth] Auto-imported credential for ${credential.email}`);
         return { email: credential.email };

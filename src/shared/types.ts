@@ -48,6 +48,7 @@ export interface QuotaSnapshot {
     models: ModelQuotaInfo[];
     allModels?: ModelQuotaInfo[];
     groups?: QuotaGroup[];
+    activeModelId?: string;
     isConnected: boolean;
     errorMessage?: string;
     localAccountEmail?: string;

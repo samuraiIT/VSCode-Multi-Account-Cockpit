@@ -254,7 +254,12 @@ function registerCommands(context: vscode.ExtensionContext) {
             }
 
             const result = await MarkdownExporter.exportMultiple(
-                selected.map((item) => item.conv),
+                selected.map((item) => ({
+                    id: item.conv.id,
+                    title: item.label,
+                })),
+                BRAIN_DIR,
+                CONV_DIR,
                 folder[0].fsPath,
             );
 
@@ -669,7 +674,7 @@ async function showDiagnosticsReport() {
     output.appendLine('');
 
     for (const result of results) {
-        output.appendLine(`${result.success ? 'OK' : 'FAIL'} ${result.name}: ${result.message}`);
+        output.appendLine(`${result.status === 'pass' ? 'OK' : result.status === 'warn' ? 'WARN' : 'FAIL'} ${result.label}: ${result.message}`);
     }
 
     output.show();

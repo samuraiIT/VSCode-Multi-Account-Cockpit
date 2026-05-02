@@ -13,6 +13,7 @@ export interface OAuthCredential {
     refreshToken: string;
     expiresAt: string;
     projectId?: string;
+    isGcpTos?: boolean;
     scopes: string[];
     email?: string;
     /** True if refresh token is invalid (marked when refresh fails) */
