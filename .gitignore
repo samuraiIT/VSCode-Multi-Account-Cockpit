@@ -1,4 +1,15 @@
-node_modules/
-dist/
+out
+node_modules
+.vscode-test
+.DS_Store
+.vsc-extension-quickstart.md
 *.vsix
-.vscode-test/
+
+# Local environment variables (contains secrets like SENTRY_DSN)
+.env.local
+
+# Local agent rules (do not commit)
+/AGENTS.md
+
+# Import data directory — may contain user tokens and account data
+import/

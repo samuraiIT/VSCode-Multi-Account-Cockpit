@@ -1,157 +1,561 @@
 {
   "name": "vscode-multi-account-cockpit",
-  "displayName": "VSCode Multi-Account Cockpit",
-  "description": "Unified AI IDE account manager — manage Antigravity, Codex, GitHub Copilot, Windsurf, Kiro, Cursor and more from a single VS Code panel.",
+  "displayName": "Multi-Account Cockpit",
+  "icon": "assets/icon.png",
+  "description": "Unified AI multi-account manager: quota monitoring, Google Drive sync, Telegram notifications, profile management, backup/restore, MCP server, and Cockpit Tools integration for Antigravity, Codex, Cursor, and GitHub Copilot.",
   "version": "1.0.0",
-  "publisher": "samuraiIT",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/samuraiIT/VSCode-Multi-Account-Cockpit"
-  },
+  "publisher": "jlcodes",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization"
   ],
   "keywords": [
     "antigravity",
     "codex",
-    "copilot",
-    "windsurf",
     "cursor",
-    "multi-account",
+    "github-copilot",
+    "ai",
     "quota",
-    "cockpit"
+    "dashboard",
+    "monitor",
+    "multi-account",
+    "sync",
+    "backup",
+    "google-drive",
+    "telegram",
+    "mcp"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jlcodes99/vscode-multi-account-cockpit.git"
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./dist/extension.js",
+  "main": "./out/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
   "contributes": {
     "commands": [
       {
-        "command": "multiAccountCockpit.openDashboard",
-        "title": "Multi-Account Cockpit: Open Dashboard",
-        "icon": "$(account)"
+        "command": "agCockpit.open",
+        "title": "Open Antigravity Cockpit",
+        "category": "Antigravity",
+        "icon": "$(rocket)"
       },
       {
-        "command": "multiAccountCockpit.importFromCockpitTools",
-        "title": "Multi-Account Cockpit: Import Accounts from Cockpit Tools"
+        "command": "agCockpit.refresh",
+        "title": "Refresh Quota Data",
+        "category": "Antigravity",
+        "icon": "$(sync)"
       },
       {
-        "command": "multiAccountCockpit.refreshQuotas",
-        "title": "Multi-Account Cockpit: Refresh All Quotas"
+        "command": "agCockpit.refreshModelCache",
+        "title": "Refresh Available Models Cache",
+        "category": "Antigravity",
+        "icon": "$(refresh)"
       },
       {
-        "command": "multiAccountCockpit.exportAccounts",
-        "title": "Multi-Account Cockpit: Export Accounts to JSON"
+        "command": "agCockpit.showLogs",
+        "title": "Show Logs",
+        "category": "Antigravity",
+        "icon": "$(output)"
       },
       {
-        "command": "multiAccountCockpit.importAccountsJson",
-        "title": "Multi-Account Cockpit: Import Accounts from JSON"
+        "command": "agCockpit.retry",
+        "title": "Retry Connection",
+        "category": "Antigravity",
+        "icon": "$(refresh)"
       },
       {
-        "command": "multiAccountCockpit.backupAccounts",
-        "title": "Multi-Account Cockpit: Backup Accounts"
+        "command": "agCockpit.openFeedback",
+        "title": "Report Issue / Feedback",
+        "category": "Antigravity",
+        "icon": "$(feedback)"
       },
       {
-        "command": "multiAccountCockpit.restoreAccounts",
-        "title": "Multi-Account Cockpit: Restore Accounts from Backup"
+        "command": "agCockpit.setWarningThreshold",
+        "title": "Set Warning Threshold",
+        "category": "Antigravity"
       },
       {
-        "command": "multiAccountCockpit.addAccount",
-        "title": "Multi-Account Cockpit: Add Account"
+        "command": "agCockpit.setCriticalThreshold",
+        "title": "Set Critical Threshold",
+        "category": "Antigravity"
       },
       {
-        "command": "multiAccountCockpit.diagnose",
-        "title": "Multi-Account Cockpit: Diagnose Environment"
+        "command": "agCockpit.setAccountSwitchMode",
+        "title": "Set Account Switch Mode",
+        "category": "Antigravity"
+      },
+      {
+        "command": "agCockpit.refreshAnnouncements",
+        "title": "Refresh Announcements",
+        "category": "Antigravity",
+        "icon": "$(bell)"
+      },
+      {
+        "command": "agCockpit.accountTree.refresh",
+        "title": "Refresh Account List",
+        "category": "Antigravity",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agCockpit.accountTree.switch",
+        "title": "Switch to This Account",
+        "category": "Antigravity",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "agCockpit.accountTree.openManager",
+        "title": "Open Cockpit Tools",
+        "category": "Antigravity",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "agCockpit.accountTree.loadAccountQuota",
+        "title": "Load Account Quota",
+        "category": "Antigravity",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "agCockpit.debugLocalAccount",
+        "title": "Debug Local Account (state.vscdb)",
+        "category": "Antigravity",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "agCockpit.importCockpitAccounts",
+        "title": "Import Accounts from Cockpit Tools export",
+        "category": "Antigravity",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "agCockpit.syncFromCockpitTools",
+        "title": "Sync Antigravity Accounts from Cockpit Tools",
+        "category": "Antigravity",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "multiCockpit.backup",
+        "title": "Backup All Conversations",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "multiCockpit.restore",
+        "title": "Restore Conversations from Backup",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(history)"
+      },
+      {
+        "command": "multiCockpit.exportMarkdown",
+        "title": "Export Conversations as Markdown",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(export)"
+      },
+      {
+        "command": "multiCockpit.importConversations",
+        "title": "Import Conversations",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(import)"
+      },
+      {
+        "command": "multiCockpit.syncSetup",
+        "title": "Setup Google Drive Sync",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(cloud)"
+      },
+      {
+        "command": "multiCockpit.syncNow",
+        "title": "Sync Now (Google Drive)",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "multiCockpit.switchProfile",
+        "title": "Switch Account Profile",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(person)"
+      },
+      {
+        "command": "multiCockpit.saveProfile",
+        "title": "Save Current Account Profile",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(save)"
+      },
+      {
+        "command": "multiCockpit.deleteProfile",
+        "title": "Delete Account Profile",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "multiCockpit.resolveConflicts",
+        "title": "Resolve Sync Conflicts",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "multiCockpit.startMcpServer",
+        "title": "Start MCP Proxy Server",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(server-process)"
+      },
+      {
+        "command": "multiCockpit.stopMcpServer",
+        "title": "Stop MCP Proxy Server",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "multiCockpit.telegramSetup",
+        "title": "Setup Telegram Bot Notifications",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(bell)"
+      },
+      {
+        "command": "multiCockpit.showDiagnostics",
+        "title": "Show Diagnostics Report",
+        "category": "Multi-Account Cockpit",
+        "icon": "$(pulse)"
       }
     ],
+    "keybindings": [
+      {
+        "command": "agCockpit.open",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q"
+      },
+      {
+        "command": "agCockpit.refresh",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "activeWebviewPanelId == 'antigravity.cockpit'"
+      },
+      {
+        "command": "multiCockpit.backup",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b"
+      },
+      {
+        "command": "multiCockpit.syncNow",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s"
+      },
+      {
+        "command": "multiCockpit.exportMarkdown",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e"
+      },
+      {
+        "command": "multiCockpit.switchProfile",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agCockpit",
+          "title": "Antigravity Cockpit",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "agCockpit": [
+        {
+          "id": "agCockpit.accountTree",
+          "name": "Accounts",
+          "icon": "$(account)",
+          "contextualTitle": "Antigravity Accounts"
+        }
+      ]
+    },
     "configuration": {
-      "title": "Multi-Account Cockpit",
+      "title": "Antigravity Cockpit",
       "properties": {
-        "multiAccountCockpit.autoRefreshInterval": {
+        "agCockpit.refreshInterval": {
           "type": "number",
-          "default": 5,
-          "minimum": 1,
-          "maximum": 60,
-          "description": "Auto-refresh interval in minutes (1–60)."
+          "default": 120,
+          "minimum": 10,
+          "maximum": 3600,
+          "description": "Interval in seconds to refresh quota data (10-3600)."
         },
-        "multiAccountCockpit.cockpitToolsDataDir": {
+        "agCockpit.logLevel": {
           "type": "string",
-          "default": "",
-          "description": "Path to Cockpit Tools data directory (leave empty for auto-detection)."
+          "default": "info",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "enumDescriptions": [
+            "Show all logs including debug information",
+            "Show info, warnings and errors",
+            "Show warnings and errors only",
+            "Show errors only"
+          ],
+          "description": "Log level for the output channel."
         },
-        "multiAccountCockpit.statusBarFormat": {
+        "agCockpit.notificationEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications when quota is exhausted or running low."
+        },
+        "agCockpit.statusBarFormat": {
           "type": "string",
+          "default": "standard",
           "enum": [
             "icon",
             "dot",
             "percent",
-            "dot_percent",
-            "name_percent",
-            "full"
+            "compact",
+            "namePercent",
+            "standard"
           ],
-          "default": "full",
-          "description": "Status bar display format."
+          "enumDescriptions": [
+            "Icon only - just 🚀",
+            "Status dot only - 🟢/🟡/🔴",
+            "Percentage only - 95%",
+            "Dot + percentage - 🟢 95%",
+            "Name + percentage - Sonnet: 95%",
+            "Dot + model name + percentage - 🟢 Sonnet: 95% (default)"
+          ],
+          "description": "Format of the status bar display."
         },
-        "multiAccountCockpit.warningThreshold": {
-          "type": "number",
-          "default": 30,
-          "description": "Quota warning threshold (%)."
-        },
-        "multiAccountCockpit.criticalThreshold": {
-          "type": "number",
-          "default": 10,
-          "description": "Quota critical threshold (%)."
-        },
-        "multiAccountCockpit.notificationsEnabled": {
+        "agCockpit.groupingEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show quota threshold notifications."
+          "description": "Enable quota grouping feature. Models sharing the same quota pool will be grouped together."
         },
-        "multiAccountCockpit.language": {
+        "agCockpit.groupingShowInStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show quota groups in the status bar instead of individual models."
+        },
+        "agCockpit.warningThreshold": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 80,
+          "description": "Warning threshold percentage. Quota below this value will show yellow warning. (5-80)"
+        },
+        "agCockpit.criticalThreshold": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Critical threshold percentage. Quota below this value will show red danger alert. (1-50)"
+        },
+        "agCockpit.quotaSource": {
           "type": "string",
+          "default": "authorized",
           "enum": [
-            "auto",
-            "en",
-            "zh-cn",
-            "zh-tw",
-            "ja",
-            "ko",
-            "de",
-            "es",
-            "fr",
-            "it",
-            "pt",
-            "ru",
-            "tr",
-            "pl",
-            "cs",
-            "ar",
-            "vi",
-            "id"
+            "local",
+            "authorized"
           ],
-          "default": "auto",
-          "description": "UI language."
+          "enumDescriptions": [
+            "Local process",
+            "Authorized account (default)"
+          ],
+          "description": "Quota source. Use authorized account to fetch quota without local process."
+        },
+        "agCockpit.displayMode": {
+          "type": "string",
+          "default": "webview",
+          "enum": [
+            "webview",
+            "quickpick"
+          ],
+          "enumDescriptions": [
+            "Full dashboard with Webview (default)",
+            "Lightweight QuickPick menu (better compatibility)"
+          ],
+          "description": "Display mode for quota information. Use 'quickpick' if Webview doesn't work on your system."
+        },
+        "agCockpit.profileHidden": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide the Plan Details panel in the dashboard."
+        },
+        "agCockpit.dataMasked": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mask sensitive data (email, etc.) in the Plan Details panel."
+        },
+        "multiCockpit.backup.retentionDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Number of days to retain conversation backups."
+        },
+        "multiCockpit.backup.autoBackup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically backup conversations on a schedule."
+        },
+        "multiCockpit.sync.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Google Drive synchronization."
+        },
+        "multiCockpit.sync.autoSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically sync on a schedule when sync is enabled."
+        },
+        "multiCockpit.sync.intervalMs": {
+          "type": "number",
+          "default": 300000,
+          "description": "Sync interval in milliseconds (default: 5 minutes)."
+        },
+        "multiCockpit.telegram.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Telegram bot notifications."
+        },
+        "multiCockpit.telegram.botToken": {
+          "type": "string",
+          "default": "",
+          "description": "Telegram bot token for notifications."
+        },
+        "multiCockpit.telegram.chatId": {
+          "type": "string",
+          "default": "",
+          "description": "Telegram chat ID to send notifications to."
+        },
+        "multiCockpit.mcp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable MCP proxy server."
+        },
+        "multiCockpit.mcp.port": {
+          "type": "number",
+          "default": 3100,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Port for the MCP proxy server."
+        },
+        "multiCockpit.profiles.directory": {
+          "type": "string",
+          "default": "",
+          "description": "Directory for storing account profiles. Leave empty to use default."
         }
       }
     },
     "menus": {
-      "editor/title": [],
-      "view/title": []
+      "commandPalette": [
+        {
+          "command": "agCockpit.open",
+          "when": "true"
+        },
+        {
+          "command": "agCockpit.refresh",
+          "when": "true"
+        },
+        {
+          "command": "agCockpit.refreshModelCache",
+          "when": "true"
+        },
+        {
+          "command": "agCockpit.showLogs",
+          "when": "true"
+        },
+        {
+          "command": "agCockpit.retry",
+          "when": "true"
+        },
+        {
+          "command": "agCockpit.setAccountSwitchMode",
+          "when": "false"
+        },
+        {
+          "command": "agCockpit.accountTree.switch",
+          "when": "false"
+        },
+        {
+          "command": "agCockpit.accountTree.loadAccountQuota",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "agCockpit.accountTree.refresh",
+          "when": "view == agCockpit.accountTree",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agCockpit.accountTree.openManager",
+          "when": "view == agCockpit.accountTree",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "agCockpit.accountTree.switch",
+          "when": "view == agCockpit.accountTree && viewItem == account",
+          "group": "inline@1"
+        },
+        {
+          "command": "agCockpit.accountTree.switch",
+          "when": "view == agCockpit.accountTree && viewItem == account",
+          "group": "1_actions@1"
+        }
+      ]
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "vscode:prepublish": "npm run lint && npm run build:prod",
+    "compile": "npm run lint:webview && npm run build",
+    "build": "node scripts/build.js",
+    "build:prod": "node scripts/build.js --production",
+    "watch": "npm run watch:esbuild",
+    "watch:esbuild": "node scripts/build.js --watch",
+    "copy-webview": "shx mkdir -p out/view/webview && shx cp src/view/webview/*.css src/view/webview/*.js out/view/webview/",
+    "lint": "eslint src --ext ts,js",
+    "lint:fix": "eslint src --ext ts,js --fix",
+    "lint:webview": "eslint src/view/webview/*.js",
+    "package": "npx vsce package",
+    "test": "jest",
+    "pretest": "npm run compile",
+    "postinstall": "bash scripts/install-hooks.sh",
+    "release": "bash scripts/release.sh"
   },
   "devDependencies": {
+    "@types/archiver": "^7.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.0.0",
-    "@types/vscode": "^1.85.0",
+    "@types/sql.js": "^1.4.9",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "esbuild": "^0.27.2",
+    "eslint": "^8.57.0",
+    "jest": "^30.2.0",
+    "shx": "^0.4.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "archiver": "^7.0.1",
+    "cron-parser": "^5.4.0",
+    "extract-zip": "^2.0.1",
+    "googleapis": "^144.0.0",
+    "markdown-it": "^14.1.0",
+    "node-cron": "^4.2.1",
+    "protobufjs": "^8.0.3",
+    "sql.js": "^1.13.0",
+    "zod": "^3.25.76"
   }
 }

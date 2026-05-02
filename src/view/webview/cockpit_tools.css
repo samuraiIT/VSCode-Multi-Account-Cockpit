@@ -1,0 +1,308 @@
+/* ==========================================================================
+   Cockpit Tools - All Accounts Tab
+   Unified view of every account stored in ~/.antigravity_cockpit/
+   ========================================================================== */
+
+/* Tab panel container */
+#tab-cockpit {
+    padding: 0 0 32px 0;
+    min-height: 200px;
+}
+
+/* ---- Toolbar ---- */
+.ct-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--vscode-sideBar-background, #1e1e1e);
+    border-bottom: 1px solid var(--vscode-panel-border, #333);
+    flex-wrap: wrap;
+}
+
+.ct-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ct-total-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: var(--vscode-foreground, #ccc);
+    white-space: nowrap;
+}
+
+.ct-total-badge strong {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--vscode-textLink-activeForeground, #7c97d8);
+}
+
+.ct-search-input {
+    flex: 1;
+    min-width: 120px;
+    max-width: 280px;
+    padding: 5px 10px;
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 4px;
+    background: var(--vscode-input-background, #2d2d2d);
+    color: var(--vscode-input-foreground, #ccc);
+    font-size: 12px;
+    outline: none;
+}
+
+.ct-search-input:focus {
+    border-color: var(--vscode-focusBorder, #5b8dd9);
+}
+
+.ct-filter-select {
+    padding: 5px 8px;
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 4px;
+    background: var(--vscode-dropdown-background, #2d2d2d);
+    color: var(--vscode-dropdown-foreground, #ccc);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.ct-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.ct-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+
+.ct-btn:hover {
+    opacity: 0.85;
+}
+
+.ct-btn-primary {
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+}
+
+.ct-btn-secondary {
+    background: var(--vscode-button-secondaryBackground, #3a3d41);
+    color: var(--vscode-button-secondaryForeground, #ccc);
+}
+
+.ct-last-refreshed {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground, #888);
+}
+
+/* ---- Loading ---- */
+.ct-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 60px 16px;
+    color: var(--vscode-descriptionForeground, #888);
+    font-size: 13px;
+}
+
+/* ---- Empty state ---- */
+.ct-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 16px;
+    text-align: center;
+}
+
+.ct-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+}
+
+.ct-empty-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--vscode-foreground, #ccc);
+    margin-bottom: 6px;
+}
+
+.ct-empty-desc {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground, #888);
+    max-width: 340px;
+    line-height: 1.5;
+}
+
+/* ---- Content area ---- */
+#ct-content {
+    padding: 16px;
+}
+
+/* ---- Provider section ---- */
+.ct-section {
+    margin-bottom: 24px;
+}
+
+.ct-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-left: 3px solid #8b5cf6;
+    background: var(--vscode-editor-inactiveSelectionBackground, rgba(255,255,255,0.04));
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 10px;
+}
+
+.ct-section-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.ct-section-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vscode-foreground, #ccc);
+    flex: 1;
+}
+
+.ct-section-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--vscode-badge-background, #4d4d4d);
+    color: var(--vscode-badge-foreground, #fff);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.ct-section-hint {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground, #888);
+}
+
+/* ---- Accounts grid ---- */
+.ct-accounts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px;
+}
+
+/* ---- Account card ---- */
+.ct-account-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--vscode-editor-background, #1e1e1e);
+    border: 1px solid var(--vscode-panel-border, #333);
+    border-radius: 6px;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: default;
+}
+
+.ct-account-card:hover {
+    border-color: var(--vscode-focusBorder, #5b8dd9);
+    background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.05));
+}
+
+.ct-account-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.ct-account-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ct-account-email {
+    font-size: 12px;
+    color: var(--vscode-foreground, #ccc);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.ct-account-name {
+    display: block;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground, #888);
+    margin-top: 1px;
+}
+
+.ct-account-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.ct-account-time {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground, #888);
+}
+
+/* ---- Badges ---- */
+.ct-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.ct-badge-current {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.plan-free {
+    background: rgba(107, 114, 128, 0.2);
+    color: var(--vscode-descriptionForeground, #9ca3af);
+    border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+.plan-pro {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.plan-ultra {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}

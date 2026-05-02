@@ -1,0 +1,585 @@
+import * as https from 'https';
+import { ProcessPortDetector } from './processPortDetector';
+
+
+export interface SearchResult {
+    cascadeId: string;
+    title: string;
+    matches: SearchMatch[];
+    lastModified: number;
+    // Enriched fields
+    status?: string;
+    stepCount?: number;
+    branch?: string;
+    repo?: string;
+}
+
+export interface SearchMatch {
+    text: string;
+    role: 'user' | 'model';
+    timestamp?: number;
+}
+// ... existing code ...
+// ... existing code ...
+
+export class AntigravityClient {
+    private portDetector: ProcessPortDetector;
+    private connectionInfo: { port: number; token: string } | null = null;
+
+    constructor() {
+        this.portDetector = new ProcessPortDetector();
+    }
+
+    private async ensureConnection(): Promise<{ port: number; token: string }> {
+        if (this.connectionInfo) return this.connectionInfo;
+
+        const info = await this.portDetector.detectProcessInfo();
+        if (!info) {
+            throw new Error('Antigravity Language Server not found. Please ensure the extension is running.');
+        }
+
+        this.connectionInfo = { port: info.connectPort, token: info.csrfToken };
+        return this.connectionInfo;
+    }
+
+    /**
+     * Internal request helper
+     */
+    public async request(method: string, body: any): Promise<any> {
+        const { port, token } = await this.ensureConnection();
+
+        return new Promise((resolve, reject) => {
+            const requestBody = JSON.stringify(body);
+            const options = {
+                hostname: '127.0.0.1',
+                port: port,
+                path: `/exa.language_server_pb.LanguageServerService/${method}`,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(requestBody),
+                    'Connect-Protocol-Version': '1',
+                    'X-Codeium-Csrf-Token': token
+                },
+                rejectUnauthorized: false
+            };
+
+            const req = https.request(options, (res) => {
+                const chunks: Buffer[] = [];
+                res.on('data', (d) => chunks.push(d));
+                res.on('end', () => {
+                    const responseBody = Buffer.concat(chunks).toString();
+                    if (res.statusCode === 200) {
+                        try {
+                            resolve(JSON.parse(responseBody));
+                        } catch {
+                            reject(new Error(`Failed to parse response: ${responseBody}`));
+                        }
+                    } else {
+                        reject(new Error(`API Error ${res.statusCode}: ${responseBody}`));
+                    }
+                });
+            });
+
+            req.on('error', (e) => reject(e));
+            req.write(requestBody);
+            req.end();
+        });
+    }
+
+    /**
+     * Search across all conversations
+     */
+    async search(query: string): Promise<SearchResult[]> {
+        const results: SearchResult[] = [];
+        const queryLower = query.toLowerCase();
+
+        try {
+            // 1. Get all conversations
+            // API: GetAllCascadeTrajectories
+            const trajectories = await this.request('GetAllCascadeTrajectories', {});
+
+            // Response might have trajectorySummaries as an array OR a Map (object)
+            let list: any[] = [];
+            const rawSummaries = trajectories.trajectorySummaries;
+
+            if (Array.isArray(rawSummaries)) {
+                list = rawSummaries;
+            } else if (rawSummaries && typeof rawSummaries === 'object') {
+                // The key is the cascadeId, the value is the summary object
+                list = Object.entries(rawSummaries).map(([key, value]: [string, any]) => ({
+                    ...value,
+                    cascadeId: key // Inject key as cascadeId if missing
+                }));
+            }
+
+            // If still empty try fallback keys if any (defensive)
+            if (list.length === 0 && trajectories.cascadeTrajectories) {
+                list = trajectories.cascadeTrajectories;
+            }
+            // Usually GetAll returns metadata.
+
+            // Limit concurrent searches to avoid overwhelming the local server
+            const batchSize = 5;
+            for (let i = 0; i < list.length; i += batchSize) {
+                const batch = list.slice(i, i + batchSize);
+                await Promise.all(batch.map(async (item: any) => {
+                    try {
+                        const cascadeId = item.cascadeId;
+                        if (!cascadeId) return;
+
+                        // Fetch full trajectory
+                        // API: GetCascadeTrajectory
+                        const result = await this.request('GetCascadeTrajectory', {
+                            cascadeId: cascadeId
+                        });
+
+                        const steps = result.trajectory?.steps || [];
+                        const matches: SearchMatch[] = [];
+
+                        for (const step of steps) {
+                            let text = '';
+                            let role: 'user' | 'model' = 'user';
+
+                            if (step.type === 'CORTEX_STEP_TYPE_USER_INPUT') {
+                                role = 'user';
+                                // 1. Text extraction logic
+                                if (step.userInput?.userResponse) {
+                                    // Priority: userResponse
+                                    text = step.userInput.userResponse;
+                                } else if (step.userInput && Array.isArray(step.userInput.items) && step.userInput.items.length > 0) {
+                                    // Fallback: items
+                                    text = step.userInput.items
+                                        .map((item: any) => item.text?.content || item.code?.value || '')
+                                        .filter((t: string) => t.length > 0)
+                                        .join('\n\n');
+                                }
+
+                                // 2. Media (Images) logic
+                                if (step.userInput?.media && Array.isArray(step.userInput.media)) {
+                                    for (const media of step.userInput.media) {
+                                        if (media.mimeType === 'image/png') {
+                                            if (media.content) {
+                                                // data:image/png;base64,...
+                                                text += `\n\n![Image](data:image/png;base64,${media.content})`;
+                                            } else if (media.path) {
+                                                text += `\n\n![Image](${media.path})`;
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (step.type === 'CORTEX_STEP_TYPE_MODEL_RESPONSE') {
+                                role = 'model';
+                                if (step.modelResponse && step.modelResponse.content && Array.isArray(step.modelResponse.content)) {
+                                    text = step.modelResponse.content.map((c: any) => c.text?.content || '').join('\n');
+                                } else if (step.modelResponse?.text) {
+                                    text = step.modelResponse.text;
+                                }
+                            } else if (step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') {
+                                role = 'model';
+                                text = step.plannerResponse?.thinking || '';
+                            } else {
+                                text = step.message?.text || step.text || '';
+                                role = step.header?.sender === 'USER' ? 'user' : 'model';
+                            }
+
+                            if (text && text.toLowerCase().includes(queryLower)) {
+                                matches.push({
+                                    text: text.substring(0, 1000) + (text.length > 1000 ? '...' : ''),
+                                    role: role
+                                });
+                            }
+                        }
+
+                        if (matches.length > 0) {
+                            // Extract workspace info
+                            let branch: string | undefined;
+                            let repo: string | undefined;
+                            if (item.workspaces && item.workspaces.length > 0) {
+                                branch = item.workspaces[0].branchName;
+                                if (item.workspaces[0].repository) {
+                                    repo = item.workspaces[0].repository.computedName;
+                                }
+                            }
+
+                            results.push({
+                                cascadeId: cascadeId,
+                                title: item.summary || item.name || item.title || cascadeId,
+                                matches: matches,
+                                lastModified: item.lastModifiedTime ? new Date(item.lastModifiedTime).getTime() : Date.now(),
+                                status: item.status,
+                                stepCount: item.stepCount,
+                                branch: branch,
+                                repo: repo
+                            });
+                        }
+
+                    } catch {
+                        // Ignore error for single item
+                        console.error(`Failed to search ${item.cascadeId}`); // removed _e
+                    }
+                }));
+            }
+
+        } catch (e) {
+            console.error('Search failed', e);
+            throw e;
+        }
+
+        return results;
+    }
+
+    /**
+     * Get full conversation history using the non-paginated API
+     */
+    async getConversationMessages(cascadeId: string): Promise<any[]> {
+        try {
+            const result = await this.request('GetCascadeTrajectory', {
+                cascadeId: cascadeId
+            });
+            return result.trajectory?.steps || [];
+        } catch (e) {
+            console.error(`Failed to fetch full trajectory for ${cascadeId}, falling back to steps API`, e);
+            const details = await this.request('GetCascadeTrajectorySteps', {
+                cascadeId: cascadeId,
+                startIndex: 0,
+                endIndex: 10000
+            });
+            return details.steps || details.step || [];
+        }
+    }
+
+    /**
+     * Get token usage metadata for a conversation
+     */
+    async getTrajectoryMetadata(cascadeId: string): Promise<any[]> {
+        try {
+            const result = await this.request('GetCascadeTrajectoryGeneratorMetadata', {
+                cascadeId: cascadeId
+            });
+            return result.generatorMetadata || [];
+        } catch (e) {
+            console.error(`Failed to fetch metadata for ${cascadeId}`, e);
+            return [];
+        }
+    }
+    /**
+     * Get details for a specific user trajectory (often contains missing text for steps)
+     */
+    async getUserTrajectory(trajectoryId: string): Promise<any> {
+        try {
+            return await this.request('GetUserTrajectory', {
+                trajectoryId: trajectoryId
+            });
+        } catch (e) {
+            console.error(`Failed to fetch user trajectory ${trajectoryId}`, e);
+            return null;
+        }
+    }
+
+    /**
+     * Force the server to flush all queued messages and state to disk.
+     */
+    async sendAllQueuedMessages(): Promise<void> {
+        try {
+            await this.request('SendAllQueuedMessages', {});
+        } catch (e) {
+            console.error('Failed to flush server messages', e);
+        }
+    }
+
+    /**
+     * Check server heartbeat
+     */
+    async getHeartbeat(): Promise<any> {
+        return await this.request('Heartbeat', {
+            uuid: '00000000-0000-0000-0000-000000000000'
+        });
+    }
+
+    // ==================== MCP API Methods ====================
+
+    /**
+     * Get MCP server states - returns list of connected MCP servers and their status
+     */
+    async getMcpServerStates(): Promise<McpServerState[]> {
+        try {
+            const result = await this.request('GetMcpServerStates', {});
+            return result.mcpServerStates || result.serverStates || [];
+        } catch (e) {
+            console.error('Failed to get MCP server states', e);
+            return [];
+        }
+    }
+
+    /**
+     * Refresh MCP servers - trigger reconnection/refresh of MCP servers
+     */
+    async refreshMcpServers(): Promise<void> {
+        try {
+            await this.request('RefreshMcpServers', {});
+        } catch (e) {
+            console.error('Failed to refresh MCP servers', e);
+        }
+    }
+
+    /**
+     * List MCP resources for a specific server
+     */
+    async listMcpResources(serverId?: string): Promise<McpResource[]> {
+        try {
+            const body = serverId ? { serverId } : {};
+            const result = await this.request('ListMcpResources', body);
+            return result.resources || [];
+        } catch (e) {
+            console.error('Failed to list MCP resources', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get available MCP server templates (from cloud)
+     */
+    async getMcpServerTemplates(): Promise<any[]> {
+        try {
+            const result = await this.request('GetMcpServerTemplates', {});
+            return result.templates || [];
+        } catch (e) {
+            console.error('Failed to get MCP server templates', e);
+            return [];
+        }
+    }
+
+    // ==================== Additional API Methods ====================
+
+    /**
+     * Get cascade memories (Knowledge Items)
+     */
+    async getCascadeMemories(): Promise<any[]> {
+        try {
+            const result = await this.request('GetCascadeMemories', {});
+            return result.memories || [];
+        } catch (e) {
+            console.error('Failed to get cascade memories', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get user memories
+     */
+    async getUserMemories(): Promise<any[]> {
+        try {
+            const result = await this.request('GetUserMemories', {});
+            return result.memories || [];
+        } catch (e) {
+            console.error('Failed to get user memories', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get brain status
+     */
+    async getBrainStatus(): Promise<any> {
+        try {
+            return await this.request('GetBrainStatus', {});
+        } catch (e) {
+            console.error('Failed to get brain status', e);
+            return null;
+        }
+    }
+
+    /**
+     * Get model statuses
+     */
+    async getModelStatuses(): Promise<any[]> {
+        try {
+            const result = await this.request('GetModelStatuses', {});
+            return result.modelStatuses || [];
+        } catch (e) {
+            console.error('Failed to get model statuses', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get workspace information
+     */
+    async getWorkspaceInfos(): Promise<any[]> {
+        try {
+            const result = await this.request('GetWorkspaceInfos', {});
+            return result.workspaceInfos || result.workspaces || [];
+        } catch (e) {
+            console.error('Failed to get workspace infos', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get repository information
+     */
+    async getRepoInfos(): Promise<any[]> {
+        try {
+            const result = await this.request('GetRepoInfos', {});
+            return result.repoInfos || result.repositories || [];
+        } catch (e) {
+            console.error('Failed to get repo infos', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get available Cascade plugins
+     */
+    async getAvailableCascadePlugins(): Promise<any[]> {
+        try {
+            const result = await this.request('GetAvailableCascadePlugins', {});
+            return result.plugins || [];
+        } catch (e) {
+            console.error('Failed to get cascade plugins', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get all workflows
+     */
+    async getAllWorkflows(): Promise<any[]> {
+        try {
+            const result = await this.request('GetAllWorkflows', {});
+            return result.workflows || [];
+        } catch (e) {
+            console.error('Failed to get workflows', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get all rules
+     */
+    async getAllRules(): Promise<any[]> {
+        try {
+            const result = await this.request('GetAllRules', {});
+            return result.rules || [];
+        } catch (e) {
+            console.error('Failed to get rules', e);
+            return [];
+        }
+    }
+
+    /**
+     * Get user settings
+     */
+    async getUserSettings(): Promise<any> {
+        try {
+            return await this.request('GetUserSettings', {});
+        } catch (e) {
+            console.error('Failed to get user settings', e);
+            return null;
+        }
+    }
+
+    /**
+     * Get Unleash feature flags data
+     */
+    async getUnleashData(): Promise<any> {
+        try {
+            return await this.request('GetUnleashData', {
+                context: {
+                    properties: {
+                        ide: 'antigravity',
+                        os: process.platform
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Failed to get unleash data', e);
+            return null;
+        }
+    }
+
+    // ==================== Image Generation Tracking ====================
+
+    /**
+     * Analyze trajectory for image generations
+     */
+    async getImageGenerationStats(cascadeId: string): Promise<ImageGenStats> {
+        try {
+            const trajectory = await this.request('GetCascadeTrajectory', { cascadeId });
+            const steps = trajectory.trajectory?.steps || [];
+
+            const imageSteps = steps.filter((s: any) =>
+                s.type === 'CORTEX_STEP_TYPE_GENERATE_IMAGE'
+            );
+
+            return {
+                count: imageSteps.length,
+                prompts: imageSteps.map((s: any) => ({
+                    prompt: s.generateImage?.prompt || s.imageGeneration?.prompt || 'Unknown',
+                    timestamp: s.timestamp || null,
+                    imagePaths: s.generateImage?.imagePaths || s.imageGeneration?.paths || []
+                }))
+            };
+        } catch (e) {
+            console.error(`Failed to get image generation stats for ${cascadeId}`, e);
+            return { count: 0, prompts: [] };
+        }
+    }
+
+    /**
+     * Get step type statistics for a conversation
+     */
+    async getStepTypeStats(cascadeId: string): Promise<Record<string, number>> {
+        try {
+            const trajectory = await this.request('GetCascadeTrajectory', { cascadeId });
+            const steps = trajectory.trajectory?.steps || [];
+
+            const stats: Record<string, number> = {};
+            for (const step of steps) {
+                if (step.type) {
+                    stats[step.type] = (stats[step.type] || 0) + 1;
+                }
+            }
+
+            return stats;
+        } catch (e) {
+            console.error(`Failed to get step type stats for ${cascadeId}`, e);
+            return {};
+        }
+    }
+}
+
+// ==================== Type Definitions ====================
+
+export interface McpServerState {
+    serverId: string;
+    serverName: string;
+    status: 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'PENDING' | 'UNKNOWN';
+    tools?: McpTool[];
+    resources?: McpResource[];
+    lastError?: string;
+    config?: any;
+}
+
+export interface McpTool {
+    name: string;
+    description?: string;
+    inputSchema?: any;
+}
+
+export interface McpResource {
+    uri: string;
+    mimeType?: string;
+    description?: string;
+    name?: string;
+}
+
+export interface ImageGenStats {
+    count: number;
+    prompts: Array<{
+        prompt: string;
+        timestamp?: number | null;
+        imagePaths?: string[];
+    }>;
+}
