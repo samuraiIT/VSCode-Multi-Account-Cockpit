@@ -448,6 +448,97 @@ async function backupAll() {
     });
 }
 
+function removePathIfExists(targetPath: string) {
+    if (!fs.existsSync(targetPath)) {
+        return;
+    }
+
+    const stats = fs.statSync(targetPath);
+    if (stats.isDirectory()) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+        return;
+    }
+
+    fs.rmSync(targetPath, { force: true });
+}
+
+function createImportWorkspacePath(parentDir: string, label: string): string {
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return path.join(parentDir, `${label}.${suffix}`);
+}
+
+function replaceImportedConversationFiles(
+    sourceBrainDir: string,
+    sourcePbFile: string,
+    targetConversationId: string,
+) {
+    fs.mkdirSync(BRAIN_DIR, { recursive: true });
+
+    const targetBrainDir = path.join(BRAIN_DIR, targetConversationId);
+    const targetPbFile = path.join(CONV_DIR, `${targetConversationId}.pb`);
+    const hasSourcePbFile = fs.existsSync(sourcePbFile);
+
+    const stagedBrainDir = createImportWorkspacePath(BRAIN_DIR, `.import-staging-${targetConversationId}`);
+    const stagedPbFile = hasSourcePbFile
+        ? createImportWorkspacePath(CONV_DIR, `.import-staging-${targetConversationId}.pb`)
+        : null;
+
+    const existingBrainBackupDir = fs.existsSync(targetBrainDir)
+        ? createImportWorkspacePath(BRAIN_DIR, `.import-backup-${targetConversationId}`)
+        : null;
+    const existingPbBackupFile = fs.existsSync(targetPbFile)
+        ? createImportWorkspacePath(CONV_DIR, `.import-backup-${targetConversationId}.pb`)
+        : null;
+
+    fs.cpSync(sourceBrainDir, stagedBrainDir, { recursive: true });
+    if (stagedPbFile) {
+        fs.mkdirSync(CONV_DIR, { recursive: true });
+        fs.copyFileSync(sourcePbFile, stagedPbFile);
+    }
+
+    try {
+        if (existingBrainBackupDir) {
+            fs.renameSync(targetBrainDir, existingBrainBackupDir);
+        }
+        if (existingPbBackupFile) {
+            fs.mkdirSync(CONV_DIR, { recursive: true });
+            fs.renameSync(targetPbFile, existingPbBackupFile);
+        }
+
+        fs.renameSync(stagedBrainDir, targetBrainDir);
+
+        if (stagedPbFile) {
+            fs.mkdirSync(CONV_DIR, { recursive: true });
+            fs.renameSync(stagedPbFile, targetPbFile);
+        }
+
+        if (existingBrainBackupDir) {
+            fs.rmSync(existingBrainBackupDir, { recursive: true, force: true });
+        }
+        if (existingPbBackupFile) {
+            fs.rmSync(existingPbBackupFile, { force: true });
+        }
+    } catch (error) {
+        removePathIfExists(targetBrainDir);
+        removePathIfExists(targetPbFile);
+
+        if (existingBrainBackupDir && fs.existsSync(existingBrainBackupDir)) {
+            fs.renameSync(existingBrainBackupDir, targetBrainDir);
+        }
+        if (existingPbBackupFile && fs.existsSync(existingPbBackupFile)) {
+            fs.mkdirSync(CONV_DIR, { recursive: true });
+            fs.renameSync(existingPbBackupFile, targetPbFile);
+        }
+
+        removePathIfExists(stagedBrainDir);
+        if (stagedPbFile) {
+            removePathIfExists(stagedPbFile);
+        }
+
+        throw error;
+    }
+}
+
 async function importConversations() {
     const lm = LocalizationManager.getInstance();
     const archives = await vscode.window.showOpenDialog({
@@ -534,19 +625,8 @@ async function importConversations() {
                         }
 
                         const sourceBrainDir = path.join(extractedBrainDir, conversationId);
-                        const targetBrainDir = path.join(BRAIN_DIR, targetConversationId);
-
-                        if (fs.existsSync(targetBrainDir)) {
-                            fs.rmSync(targetBrainDir, { recursive: true, force: true });
-                        }
-                        fs.cpSync(sourceBrainDir, targetBrainDir, { recursive: true });
-
                         const sourcePbFile = path.join(tempDir, 'conversations', `${conversationId}.pb`);
-                        if (fs.existsSync(sourcePbFile)) {
-                            fs.mkdirSync(CONV_DIR, { recursive: true });
-                            const targetPbFile = path.join(CONV_DIR, `${targetConversationId}.pb`);
-                            fs.copyFileSync(sourcePbFile, targetPbFile);
-                        }
+                        replaceImportedConversationFiles(sourceBrainDir, sourcePbFile, targetConversationId);
 
                         importedCount++;
                     }
