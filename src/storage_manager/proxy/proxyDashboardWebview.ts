@@ -1,5 +1,6 @@
 
 /* eslint-disable no-useless-escape */
+import * as childProcess from 'child_process';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
@@ -173,10 +174,10 @@ export class ProxyDashboardWebview {
                         break;
                     }
                     case 'testApiKey':
-                        if (message.key) this._proxyManager.testApiKey(message.key);
+                        if (message.key) {this._proxyManager.testApiKey(message.key);}
                         break;
                     case 'editApiKey':
-                        if (message.key) this._proxyManager.editApiKey(message.key);
+                        if (message.key) {this._proxyManager.editApiKey(message.key);}
                         break;
                     case 'removeApiKey':
                         if (message.key) {
@@ -578,7 +579,7 @@ export class ProxyDashboardWebview {
         }
 
         const authDir = this._proxyManager.getAuthDir();
-        if (!authDir) return;
+        if (!authDir) {return;}
 
         // Watch for .json files in auth directory
         const pattern = new vscode.RelativePattern(authDir, '*.json');
@@ -802,7 +803,7 @@ export class ProxyDashboardWebview {
                 json = {};
             }
 
-            if (!json.mcpServers) json.mcpServers = {};
+            if (!json.mcpServers) {json.mcpServers = {};}
 
             // Get API Key if available
             const apiKeys = this._proxyManager.getApiKeys();
@@ -847,26 +848,21 @@ export class ProxyDashboardWebview {
         // Run in terminal
         const deployedScriptPath = await this._proxyManager.deployMcpServerScript(this._extensionUri);
 
-        this._mcpTerminal = vscode.window.createTerminal('Antigravity MCP Inspector');
         const apiKeys = this._proxyManager.getApiKeys();
         const apiKey = apiKeys.length > 0 ? apiKeys[0].key : '';
         const managementKey = await this._proxyManager.getManagementKey();
-
-        if (process.platform === 'win32') {
-            this._mcpTerminal.sendText(`$env:PROXY_API_KEY="${apiKey}"`);
-            if (managementKey) {
-                // Escape double quotes if necessary, though simpler is better for now.
-                // PowerShell string interpolation
-                this._mcpTerminal.sendText(`$env:PROXY_MANAGEMENT_KEY="${managementKey}"`);
-            }
-            this._mcpTerminal.sendText(`node "${deployedScriptPath}"`);
-        } else {
-            this._mcpTerminal.sendText(`export PROXY_API_KEY="${apiKey}"`);
-            if (managementKey) {
-                this._mcpTerminal.sendText(`export PROXY_MANAGEMENT_KEY="${managementKey}"`);
-            }
-            this._mcpTerminal.sendText(`node "${deployedScriptPath}"`);
+        const terminalEnv: Record<string, string> = {
+            PROXY_API_KEY: apiKey,
+        };
+        if (managementKey) {
+            terminalEnv.PROXY_MANAGEMENT_KEY = managementKey;
         }
+
+        this._mcpTerminal = vscode.window.createTerminal({
+            name: 'Antigravity MCP Inspector',
+            env: terminalEnv,
+        });
+        this._mcpTerminal.sendText(`node "${deployedScriptPath}"`);
         this._mcpTerminal.show();
         this._panel?.webview.postMessage({ command: 'mcpStatus', running: true });
         this.update();
@@ -928,15 +924,11 @@ export class ProxyDashboardWebview {
                 JSON.stringify(initializedNotif) + '\n' +
                 JSON.stringify(rpcReq) + '\n';
 
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const fs = require('fs');
             if (!fs.existsSync(deployedScriptPath)) {
                 throw new Error(`MCP script not found at ${deployedScriptPath}`);
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const cp = require('child_process');
-            const child = cp.spawn('node', [deployedScriptPath], {
+            const child = childProcess.spawn('node', [deployedScriptPath], {
                 env: { ...process.env, PROXY_API_KEY: apiKey }
             });
 
@@ -1005,9 +997,9 @@ export class ProxyDashboardWebview {
                     let ua = userAgentMap[providerId];
                     if (!ua) {
                         const m = model.toLowerCase();
-                        if (m.includes('gemini')) ua = 'gemini-cli/1.0.0';
-                        else if (m.includes('claude')) ua = 'claude-code/1.0.0';
-                        else if (m.includes('copilot') || m.includes('gpt')) ua = 'GitHubCopilotChat/0.26.7';
+                        if (m.includes('gemini')) {ua = 'gemini-cli/1.0.0';}
+                        else if (m.includes('claude')) {ua = 'claude-code/1.0.0';}
+                        else if (m.includes('copilot') || m.includes('gpt')) {ua = 'GitHubCopilotChat/0.26.7';}
                     }
                     if (ua) {
                         headers['User-Agent'] = ua;
@@ -1084,11 +1076,11 @@ export class ProxyDashboardWebview {
             if (!userAgent) {
                 // Fallback to substring match
                 const modelLower = modelInput.toLowerCase();
-                if (modelLower.includes('gemini') || modelLower.includes('aistudio')) userAgent = 'gemini-cli/1.0.0';
-                else if (modelLower.includes('claude')) userAgent = 'claude-code/1.0.0';
-                else if (modelLower.includes('codex')) userAgent = 'codex-cli/1.0.0';
-                else if (modelLower.includes('copilot') || modelLower.includes('gpt')) userAgent = 'GitHubCopilotChat/0.26.7';
-                else if (modelLower.includes('qwen')) userAgent = 'qwen-cli/1.0.0';
+                if (modelLower.includes('gemini') || modelLower.includes('aistudio')) {userAgent = 'gemini-cli/1.0.0';}
+                else if (modelLower.includes('claude')) {userAgent = 'claude-code/1.0.0';}
+                else if (modelLower.includes('codex')) {userAgent = 'codex-cli/1.0.0';}
+                else if (modelLower.includes('copilot') || modelLower.includes('gpt')) {userAgent = 'GitHubCopilotChat/0.26.7';}
+                else if (modelLower.includes('qwen')) {userAgent = 'qwen-cli/1.0.0';}
             }
 
             let finalModel = modelInput;
@@ -1160,10 +1152,14 @@ export class ProxyDashboardWebview {
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
+            let streamComplete = false;
 
-            while (true) {
+            while (!streamComplete) {
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    streamComplete = true;
+                    break;
+                }
 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
@@ -1172,8 +1168,8 @@ export class ProxyDashboardWebview {
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
                         const data = line.slice(6).trim();
-                        if (data === '[DONE]') continue;
-                        if (!data) continue;
+                        if (data === '[DONE]') {continue;}
+                        if (!data) {continue;}
 
                         try {
                             const json = JSON.parse(data);
@@ -1426,7 +1422,7 @@ export class ProxyDashboardWebview {
             prompt: lm.t('Enter the slash command name (e.g. "my-command")')
         });
 
-        if (!newCommandName) return;
+        if (!newCommandName) {return;}
 
         // Select Models (reuse logic)
         const config = vscode.workspace.getConfiguration('antigravity-storage-manager');
@@ -1461,7 +1457,7 @@ export class ProxyDashboardWebview {
         const modelsByProvider = new Map<string, string[]>();
         allModels.forEach(m => {
             const provider = m.provider;
-            if (!modelsByProvider.has(provider)) modelsByProvider.set(provider, []);
+            if (!modelsByProvider.has(provider)) {modelsByProvider.set(provider, []);}
             modelsByProvider.get(provider)?.push(m.id);
         });
 
@@ -1487,7 +1483,7 @@ export class ProxyDashboardWebview {
             placeHolder: lm.t('Select allowed models')
         });
 
-        if (!selectedModels) return;
+        if (!selectedModels) {return;}
 
         const allowedModels = selectedModels
             .filter(m => m.value !== 'all' && m.kind !== vscode.QuickPickItemKind.Separator)
