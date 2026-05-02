@@ -1,5 +1,12 @@
 # AI Change Log
 
+## 20260503-022400-proxy-network-cleanup
+
+- Split a narrow proxy-manager cleanup slice out of the remaining large proxy worktree.
+- Replaced the last dynamic `require('http')` usage in proxy networking helpers with a static import.
+- Consolidated partial-download cleanup for redirect/error/cancel branches in the download path.
+- Normalized touched proxy-manager error paths to message-based handling without changing the public runtime contract of `fetchJson`.
+
 ## 20260503-021300-cockpit-tools-webview-providers
 
 - Updated the Cockpit Tools webview copy to reflect that it now renders all supported exported providers instead of only the original fixed set.

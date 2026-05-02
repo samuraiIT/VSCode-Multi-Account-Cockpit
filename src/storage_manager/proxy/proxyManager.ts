@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
+import * as http from 'http';
 import * as https from 'https';
 import * as nodeCrypto from 'crypto';
 import extract from 'extract-zip';
@@ -17,6 +18,10 @@ const BINARY_MAP: { [key: string]: string } = {
 
 const REPO_OWNER = 'router-for-me';
 const REPO_NAME = 'CLIProxyAPIPlus';
+
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 export enum ProxyStatus {
     Stopped = 'Stopped',
@@ -33,6 +38,8 @@ export interface AccountDetails {
     user?: string;
     expired?: string;
 }
+
+type HttpModule = typeof http | typeof https;
 
 export class ProxyManager {
     private _process: cp.ChildProcess | null = null;
@@ -214,9 +221,9 @@ export class ProxyManager {
                 }
             }, 2000);
 
-        } catch (e: any) {
+        } catch (error: unknown) {
             this._status = ProxyStatus.Error;
-            this._outputChannel.appendLine(`[EXCEPTION] ${e.message}`);
+            this._outputChannel.appendLine(`[EXCEPTION] ${getErrorMessage(error)}`);
             this.updateStatusBar();
         }
     }
@@ -238,7 +245,7 @@ export class ProxyManager {
                 this._process?.kill();
 
                 const safeResolve = () => {
-                    if (!this._process) return; // Already resolved
+                    if (!this._process) {return;} // Already resolved
                     this._process = null;
                     this._status = ProxyStatus.Stopped;
                     this.updateStatusBar();
@@ -284,8 +291,8 @@ export class ProxyManager {
 
                     // Replace default API keys
                     this.replaceDefaultApiKeys(configPath);
-                } catch (e) {
-                    this._outputChannel.appendLine(`[WARN] Failed to copy example config: ${e}`);
+                } catch (error: unknown) {
+                    this._outputChannel.appendLine(`[WARN] Failed to copy example config: ${getErrorMessage(error)}`);
                     this.createMinimalConfig(configPath, port, secretKey);
                 }
             } else {
@@ -296,7 +303,7 @@ export class ProxyManager {
 
     private replaceDefaultApiKeys(configPath: string) {
         try {
-            if (!fs.existsSync(configPath)) return;
+            if (!fs.existsSync(configPath)) {return;}
 
             let content = fs.readFileSync(configPath, 'utf8');
             let updated = false;
@@ -318,14 +325,14 @@ export class ProxyManager {
                 fs.writeFileSync(configPath, content);
                 this._outputChannel.appendLine('[INFO] Replaced default API keys with random values.');
             }
-        } catch (e) {
-            this._outputChannel.appendLine(`[WARN] Failed to replace default API keys: ${e}`);
+        } catch (error: unknown) {
+            this._outputChannel.appendLine(`[WARN] Failed to replace default API keys: ${getErrorMessage(error)}`);
         }
     }
 
     private updateUpstreamProxyUrl(configPath: string) {
         try {
-            if (!fs.existsSync(configPath)) return;
+            if (!fs.existsSync(configPath)) {return;}
 
             const config = vscode.workspace.getConfiguration('antigravity-storage-manager');
             const upstream = config.get<string>('proxy.upstreamUrl');
@@ -359,8 +366,8 @@ export class ProxyManager {
                     }
                 }
             }
-        } catch (e) {
-            this._outputChannel.appendLine(`[WARN] Failed to update upstream proxy URL: ${e}`);
+        } catch (error: unknown) {
+            this._outputChannel.appendLine(`[WARN] Failed to update upstream proxy URL: ${getErrorMessage(error)}`);
         }
     }
 
@@ -419,7 +426,7 @@ ${keyConfig}
                     if (trimmed.startsWith('-')) {
                         const val = trimmed.substring(1).trim();
                         const cleanVal = val.replace(/^["']|["']$/g, '');
-                        if (cleanVal) keys.push({ key: cleanVal, visible: true });
+                        if (cleanVal) {keys.push({ key: cleanVal, visible: true });}
                     }
                     // Handle commented keys
                     else if (trimmed.startsWith('#')) {
@@ -428,7 +435,7 @@ ${keyConfig}
                         if (uncommented.startsWith('-')) {
                             const val = uncommented.substring(1).trim();
                             const cleanVal = val.replace(/^["']|["']$/g, '');
-                            if (cleanVal) keys.push({ key: cleanVal, visible: false });
+                            if (cleanVal) {keys.push({ key: cleanVal, visible: false });}
                         }
                     }
                 }
@@ -443,7 +450,7 @@ ${keyConfig}
     public toggleApiKey(key: string) {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return;
+            if (!fs.existsSync(configPath)) {return;}
 
             const content = fs.readFileSync(configPath, 'utf8');
             const lines = content.split('\n');
@@ -544,7 +551,7 @@ ${keyConfig}
 
             if (stat.isDirectory()) {
                 const found = this.findFileRecursively(filePath, filename);
-                if (found) return found;
+                if (found) {return found;}
             } else if (file === filename) {
                 return filePath;
             }
@@ -567,13 +574,13 @@ ${keyConfig}
 
             if (stat.isDirectory()) {
                 const found = this.findExecutableRecursively(filePath, platform);
-                if (found) return found;
+                if (found) {return found;}
             } else if (file.endsWith(extension)) {
                 // Check if it matches likely names
                 const name = file.toLowerCase();
                 if (name.includes('cliproxy') || name.includes('vibe-proxy') || name.includes('proxy')) {
                     // Avoid matching "proxy.zip" or "proxy.tar.gz" if somehow they linger or match extension logic
-                    if (name === 'proxy.zip' || name === 'proxy.tar.gz') continue;
+                    if (name === 'proxy.zip' || name === 'proxy.tar.gz') {continue;}
                     return filePath;
                 }
             }
@@ -699,12 +706,12 @@ ${keyConfig}
 
     private getAssetKeywords(platform: string, arch: string): string[] {
         const keywords: string[] = [];
-        if (platform === 'win32') keywords.push('windows');
-        else if (platform === 'darwin') keywords.push('darwin');
-        else keywords.push('linux');
+        if (platform === 'win32') {keywords.push('windows');}
+        else if (platform === 'darwin') {keywords.push('darwin');}
+        else {keywords.push('linux');}
 
-        if (arch === 'x64') keywords.push('amd64');
-        else if (arch === 'arm64') keywords.push('arm64');
+        if (arch === 'x64') {keywords.push('amd64');}
+        else if (arch === 'arm64') {keywords.push('arm64');}
 
         return keywords;
     }
@@ -714,24 +721,26 @@ ${keyConfig}
             const opts = {
                 headers: {
                     'User-Agent': 'VSCode-Antigravity-Extension',
-                    ...headers
-                }
+                    ...headers,
+                },
             };
 
             const isHttps = url.startsWith('https:');
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const requestModule = isHttps ? https : require('http');
+            const requestModule: HttpModule = isHttps ? https : http;
 
-            requestModule.get(url, opts, (res: any) => {
+            requestModule.get(url, opts, (res) => {
                 if (res.statusCode !== 200) {
                     res.resume();
                     return reject(new Error(`Request failed with status ${res.statusCode}`));
                 }
                 let data = '';
-                res.on('data', (chunk: any) => data += chunk);
+                res.on('data', (chunk) => { data += String(chunk); });
                 res.on('end', () => {
-                    try { resolve(JSON.parse(data)); }
-                    catch (e) { reject(e); }
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (error: unknown) {
+                        reject(error);
+                    }
                 });
             }).on('error', reject);
         });
@@ -746,14 +755,20 @@ ${keyConfig}
             const file = fs.createWriteStream(dest);
             const opts: https.RequestOptions = {
                 headers: {
-                    'User-Agent': 'VSCode-Antigravity-Extension'
+                    'User-Agent': 'VSCode-Antigravity-Extension',
+                },
+            };
+
+            const cleanupPartialDownload = () => {
+                file.close();
+                if (fs.existsSync(dest)) {
+                    fs.unlinkSync(dest);
                 }
             };
 
             const request = https.get(url, opts, (response) => {
                 if (response.statusCode === 302 || response.statusCode === 301) {
-                    file.close();
-                    fs.unlinkSync(dest);
+                    cleanupPartialDownload();
                     if (response.headers.location) {
                         resolve(this.downloadFile(response.headers.location, dest, token));
                     } else {
@@ -763,8 +778,7 @@ ${keyConfig}
                 }
 
                 if (response.statusCode !== 200) {
-                    file.close();
-                    if (fs.existsSync(dest)) fs.unlinkSync(dest);
+                    cleanupPartialDownload();
                     reject(new Error(`Download failed Status ${response.statusCode}`));
                     return;
                 }
@@ -777,23 +791,20 @@ ${keyConfig}
                 });
 
                 file.on('error', (err) => { // Handle file errors during pipe
-                    file.close();
-                    if (fs.existsSync(dest)) fs.unlinkSync(dest);
+                    cleanupPartialDownload();
                     reject(err);
                 });
             });
 
             request.on('error', (err) => {
-                file.close();
-                if (fs.existsSync(dest)) fs.unlinkSync(dest);
+                cleanupPartialDownload();
                 reject(err);
             });
 
             if (token) {
                 token.onCancellationRequested(() => {
                     request.destroy();
-                    file.close();
-                    if (fs.existsSync(dest)) fs.unlinkSync(dest);
+                    cleanupPartialDownload();
                     reject(new Error('Cancelled'));
                 });
             }
@@ -813,7 +824,7 @@ ${keyConfig}
     }
 
     private async checkAndStartProxy(): Promise<boolean> {
-        if (this._status === ProxyStatus.Running) return true;
+        if (this._status === ProxyStatus.Running) {return true;}
 
         const lm = LocalizationManager.getInstance();
         const action = await vscode.window.showWarningMessage(
@@ -938,7 +949,7 @@ ${keyConfig}
             // Handle Z.AI specifically first, as it goes into a different section
             if (providerId === 'z-ai') {
                 // OpenAI Compatibility Logic
-                if (!data.apiKey) return;
+                if (!data.apiKey) {return;}
 
                 // Consolidated Z.AI Logic: Remove existing (active/commented) then Append New
 
@@ -988,7 +999,7 @@ ${keyConfig}
 
             // Handle Kiro (AWS) specifically
             if (providerId === 'kiro') {
-                if (!content.includes('kiro:')) content += '\nkiro:\n';
+                if (!content.includes('kiro:')) {content += '\nkiro:\n';}
                 content = content.replace('#kiro:', 'kiro:');
                 const block = `  - token-file: "~/.aws/sso/cache/kiro-auth-token.json"\n`;
                 const regex = /(kiro:.*)/;
@@ -1004,7 +1015,7 @@ ${keyConfig}
 
             // Handle Claude specifically
             if (providerId === 'claude') {
-                if (!content.includes('claude-api-key:')) content += '\nclaude-api-key:\n';
+                if (!content.includes('claude-api-key:')) {content += '\nclaude-api-key:\n';}
                 content = content.replace('# claude-api-key:', 'claude-api-key:');
                 const block = `  - api-key: "${data.apiKey}"\n`;
                 const regex = /(claude-api-key:.*)/;
@@ -1020,7 +1031,7 @@ ${keyConfig}
 
             // Handle Codex specifically
             if (providerId === 'codex') {
-                if (!content.includes('codex-api-key:')) content += '\ncodex-api-key:\n';
+                if (!content.includes('codex-api-key:')) {content += '\ncodex-api-key:\n';}
                 content = content.replace('# codex-api-key:', 'codex-api-key:');
                 const block = `  - api-key: "${data.apiKey}"\n`;
                 const regex = /(codex-api-key:.*)/;
@@ -1036,7 +1047,7 @@ ${keyConfig}
 
             // Handle Vertex specifically
             if (providerId === 'vertex') {
-                if (!content.includes('vertex-api-key:')) content += '\nvertex-api-key:\n';
+                if (!content.includes('vertex-api-key:')) {content += '\nvertex-api-key:\n';}
                 content = content.replace('# vertex-api-key:', 'vertex-api-key:');
                 const block = `  - api-key: "${data.apiKey}"\n`;
                 const regex = /(vertex-api-key:.*)/;
@@ -1182,10 +1193,10 @@ ${keyConfig}
             // Antigravity is now handled above
             if (providerId === 'gemini') {
                 if (data.mode === 'key') {
-                    if (!data.apiKey) return;
+                    if (!data.apiKey) {return;}
 
                     // Use gemini-api-key top-level section
-                    if (!content.includes('gemini-api-key:')) content += '\ngemini-api-key:\n';
+                    if (!content.includes('gemini-api-key:')) {content += '\ngemini-api-key:\n';}
                     content = content.replace('# gemini-api-key:', 'gemini-api-key:');
 
                     const block = `  - api-key: "${data.apiKey}"
@@ -1208,7 +1219,7 @@ ${keyConfig}
                     }
 
                 } else if (data.mode === 'oauth') {
-                    if (!data.clientId || !data.clientSecret) return;
+                    if (!data.clientId || !data.clientSecret) {return;}
                     newConfigBlock = `
   - id: "gemini"
     provider: "gemini"
@@ -1252,7 +1263,7 @@ ${keyConfig}
     }
 
     public async testProvider(providerId: string, model: string) {
-        if (!(await this.checkAndStartProxy())) return;
+        if (!(await this.checkAndStartProxy())) {return;}
 
         const config = vscode.workspace.getConfiguration('antigravity-storage-manager');
         const port = config.get<number>('proxy.port', 8317);
@@ -1398,7 +1409,7 @@ ${keyConfig}
                         // No stored key, and file is hashed. We must rotate.
                         progress.report({ message: LocalizationManager.getInstance().t('Securing connection...') });
                         const rotated = await this.rotateManagementKey(configPath, content);
-                        if (!rotated) return;
+                        if (!rotated) {return;}
                         keyToUse = rotated;
                     }
                 } else {
@@ -1660,7 +1671,7 @@ ${keyConfig}
     }
 
     public async testConnection() {
-        if (!(await this.checkAndStartProxy())) return;
+        if (!(await this.checkAndStartProxy())) {return;}
 
         try {
             const config = vscode.workspace.getConfiguration('antigravity-storage-manager');
@@ -1709,7 +1720,7 @@ ${keyConfig}
     }
 
     public async testApiKey(key: string) {
-        if (!(await this.checkAndStartProxy())) return;
+        if (!(await this.checkAndStartProxy())) {return;}
         try {
             const config = vscode.workspace.getConfiguration('antigravity-storage-manager');
             const port = config.get<number>('proxy.port', 8317);
@@ -1789,7 +1800,7 @@ ${keyConfig}
     public getProviderAuthInfo(provider: string): { filePath: string, fileName: string, lastModified: Date } | null {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return null;
+            if (!fs.existsSync(configPath)) {return null;}
             const content = fs.readFileSync(configPath, 'utf8');
 
             let authDir = path.join(os.homedir(), '.cli-proxy-api');
@@ -1801,18 +1812,18 @@ ${keyConfig}
                 }
             }
 
-            if (!fs.existsSync(authDir)) return null;
+            if (!fs.existsSync(authDir)) {return null;}
 
             let filePattern: RegExp | null = null;
-            if (provider === 'antigravity') filePattern = /^antigravity-.*\.json$/;
-            else if (provider === 'codex') filePattern = /^codex-.*\.json$/;
-            else if (provider === 'github-copilot') filePattern = /^github-copilot\.json$/;
-            else if (provider === 'qwen') filePattern = /^qwen-.*\.json$/;
-            else if (provider === 'kimi') filePattern = /^kimi-.*\.json$/;
-            else if (provider === 'claude') filePattern = /^claude-.*\.json$/;
-            else if (provider === 'gemini-cli') filePattern = /^gemini-.*\.json$/;
+            if (provider === 'antigravity') {filePattern = /^antigravity-.*\.json$/;}
+            else if (provider === 'codex') {filePattern = /^codex-.*\.json$/;}
+            else if (provider === 'github-copilot') {filePattern = /^github-copilot\.json$/;}
+            else if (provider === 'qwen') {filePattern = /^qwen-.*\.json$/;}
+            else if (provider === 'kimi') {filePattern = /^kimi-.*\.json$/;}
+            else if (provider === 'claude') {filePattern = /^claude-.*\.json$/;}
+            else if (provider === 'gemini-cli') {filePattern = /^gemini-.*\.json$/;}
 
-            if (!filePattern) return null;
+            if (!filePattern) {return null;}
 
             const files = fs.readdirSync(authDir)
                 .filter(f => filePattern!.test(f))
@@ -1861,18 +1872,18 @@ ${keyConfig}
     public getAllProviderAuthInfos(provider: string): { filePath: string, fileName: string, lastModified: Date }[] {
         try {
             const authDir = this.getAuthDir();
-            if (!fs.existsSync(authDir)) return [];
+            if (!fs.existsSync(authDir)) {return [];}
 
             let filePattern: RegExp | null = null;
-            if (provider === 'antigravity') filePattern = /^antigravity-.*\.json$/;
-            else if (provider === 'codex') filePattern = /^codex-.*\.json$/;
-            else if (provider === 'github-copilot') filePattern = /^github-copilot\.json$/;
-            else if (provider === 'qwen') filePattern = /^qwen-.*\.json$/;
-            else if (provider === 'kimi') filePattern = /^kimi-.*\.json$/;
-            else if (provider === 'claude') filePattern = /^claude-.*\.json$/;
-            else if (provider === 'gemini-cli') filePattern = /^gemini-.*\.json$/;
+            if (provider === 'antigravity') {filePattern = /^antigravity-.*\.json$/;}
+            else if (provider === 'codex') {filePattern = /^codex-.*\.json$/;}
+            else if (provider === 'github-copilot') {filePattern = /^github-copilot\.json$/;}
+            else if (provider === 'qwen') {filePattern = /^qwen-.*\.json$/;}
+            else if (provider === 'kimi') {filePattern = /^kimi-.*\.json$/;}
+            else if (provider === 'claude') {filePattern = /^claude-.*\.json$/;}
+            else if (provider === 'gemini-cli') {filePattern = /^gemini-.*\.json$/;}
 
-            if (!filePattern) return [];
+            if (!filePattern) {return [];}
 
             const files = fs.readdirSync(authDir)
                 .filter(f => filePattern!.test(f))
@@ -1925,13 +1936,13 @@ ${keyConfig}
     public getZaiKey(): string | null {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return null;
+            if (!fs.existsSync(configPath)) {return null;}
             const content = fs.readFileSync(configPath, 'utf8');
 
             // Simple approach: find active z-ai block then look for api-key
             // Match the entire z-ai configuration section
             const match = content.match(/^\s+- name: ["']?z-ai["']?[\s\S]*?api-key:\s*["']?([^"'\n]+)["']?/m);
-            if (match) return match[1];
+            if (match) {return match[1];}
         } catch { /* ignore */ }
         return null;
     }
@@ -1939,16 +1950,16 @@ ${keyConfig}
     public getZaiModel(): string {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return 'glm-4-plus';
+            if (!fs.existsSync(configPath)) {return 'glm-4-plus';}
             const content = fs.readFileSync(configPath, 'utf8');
 
             // First try active block
             const activeMatch = content.match(/(?:^|\n)\s*- name: ["']?z-ai["']?[\s\S]*?models:\s*\n\s*-\s*name:\s*["']?([^"'\n]+)["']?/);
-            if (activeMatch) return activeMatch[1];
+            if (activeMatch) {return activeMatch[1];}
 
             // Fallback to commented block
             const commentedMatch = content.match(/#\s*- name: ["']?z-ai["']?[\s\S]*?#\s*-\s*name:\s*["']?([^"'\n]+)["']?/);
-            if (commentedMatch) return commentedMatch[1];
+            if (commentedMatch) {return commentedMatch[1];}
         } catch { /* ignore */ }
         return 'glm-4-plus';
     }
@@ -1957,12 +1968,12 @@ ${keyConfig}
     public getZaiKeyFromCommented(): string | null {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return null;
+            if (!fs.existsSync(configPath)) {return null;}
             const content = fs.readFileSync(configPath, 'utf8');
 
             // Match commented z-ai block and extract api-key
             const match = content.match(/#\s*- name: ["']?z-ai["']?[\s\S]*?#\s*-?\s*api-key:\s*["']?([^"'\n]+)["']?/);
-            if (match) return match[1];
+            if (match) {return match[1];}
         } catch { /* ignore */ }
         return null;
     }
@@ -1971,12 +1982,12 @@ ${keyConfig}
     public getZaiModelFromCommented(): string {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return 'glm-4-plus';
+            if (!fs.existsSync(configPath)) {return 'glm-4-plus';}
             const content = fs.readFileSync(configPath, 'utf8');
 
             // Match commented z-ai block and extract model
             const match = content.match(/#\s*- name: ["']?z-ai["']?[\s\S]*?models:[\s\S]*?#\s*-\s*name:\s*["']?([^"'\n]+)["']?/);
-            if (match) return match[1];
+            if (match) {return match[1];}
         } catch { /* ignore */ }
         return 'glm-4-plus';
     }
@@ -1984,7 +1995,7 @@ ${keyConfig}
     public isZaiEnabled(): boolean {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return false;
+            if (!fs.existsSync(configPath)) {return false;}
             const content = fs.readFileSync(configPath, 'utf8');
             // If we find un-commented z-ai block start
             // We search for a line starting with (whitespace only) "- name: 'z-ai'"
@@ -1997,7 +2008,7 @@ ${keyConfig}
     public async toggleZai(enabled: boolean) {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return;
+            if (!fs.existsSync(configPath)) {return;}
             let content = fs.readFileSync(configPath, 'utf8');
 
             if (enabled) {
@@ -2072,7 +2083,7 @@ ${keyConfig}
     public deleteZai() {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return;
+            if (!fs.existsSync(configPath)) {return;}
             let content = fs.readFileSync(configPath, 'utf8');
 
             // Remove z-ai block (commented or not)
@@ -2090,10 +2101,10 @@ ${keyConfig}
     public async getAccountDetails(provider: string, fileName: string): Promise<AccountDetails | null> {
         try {
             const authDir = this.getAuthDir();
-            if (!fs.existsSync(authDir)) return null;
+            if (!fs.existsSync(authDir)) {return null;}
 
             const filePath = path.join(authDir, fileName);
-            if (!fs.existsSync(filePath)) return null;
+            if (!fs.existsSync(filePath)) {return null;}
 
             const stats = fs.statSync(filePath);
             const content = fs.readFileSync(filePath, 'utf8');
@@ -2145,7 +2156,7 @@ ${keyConfig}
     public async getAntigravityEmail(fileName: string): Promise<string | null> {
         try {
             const authDir = this.getAuthDir();
-            if (!fs.existsSync(authDir)) return null;
+            if (!fs.existsSync(authDir)) {return null;}
 
             const filePath = path.join(authDir, fileName);
 
@@ -2153,9 +2164,9 @@ ${keyConfig}
                 const content = fs.readFileSync(filePath, 'utf8');
                 const data = JSON.parse(content);
                 // Check common email fields based on file structure
-                if (data.email) return data.email;
-                if (data.user_email) return data.user_email;
-                if (data.account_email) return data.account_email;
+                if (data.email) {return data.email;}
+                if (data.user_email) {return data.user_email;}
+                if (data.account_email) {return data.account_email;}
             }
             return null;
         } catch (e) {
@@ -2173,7 +2184,7 @@ ${keyConfig}
 
     public getConfiguredProviders(): string[] {
         const configPath = path.join(this._binDir, 'config.yaml');
-        if (!fs.existsSync(configPath)) return [];
+        if (!fs.existsSync(configPath)) {return [];}
 
         try {
             const content = fs.readFileSync(configPath, 'utf8');
@@ -2200,7 +2211,7 @@ ${keyConfig}
                     }
                 } catch { /* ignore */ }
             }
-            if (copilotConfigured) providers.push('github-copilot');
+            if (copilotConfigured) {providers.push('github-copilot');}
 
             // Check for Claude (OAuth)
             let claudeConfigured = false;
@@ -2218,7 +2229,7 @@ ${keyConfig}
                     }
                 }
             } catch { /* ignore */ }
-            if (claudeConfigured) providers.push('claude');
+            if (claudeConfigured) {providers.push('claude');}
 
             // Check for Codex (OAuth or Key)
             let codexConfigured = false;
@@ -2241,10 +2252,10 @@ ${keyConfig}
                     }
                 } catch { /* ignore */ }
             }
-            if (codexConfigured) providers.push('codex');
-            if (content.includes('vertex-api-key:') && content.includes('api-key:')) providers.push('vertex');
+            if (codexConfigured) {providers.push('codex');}
+            if (content.includes('vertex-api-key:') && content.includes('api-key:')) {providers.push('vertex');}
             // Z.AI is under openai-compatibility - check for active (not commented) block
-            if (content.match(/^\s+- name: ["']?z-ai["']?/m)) providers.push('z-ai');
+            if (content.match(/^\s+- name: ["']?z-ai["']?/m)) {providers.push('z-ai');}
 
             // Check for Qwen (OAuth)
             let qwenConfigured = false;
@@ -2261,7 +2272,7 @@ ${keyConfig}
                     }
                 }
             } catch { /* ignore */ }
-            if (qwenConfigured) providers.push('qwen');
+            if (qwenConfigured) {providers.push('qwen');}
 
             // Check for Kimi (OAuth)
             let kimiConfigured = false;
@@ -2278,8 +2289,8 @@ ${keyConfig}
                     }
                 }
             } catch { /* ignore */ }
-            if (kimiConfigured) providers.push('kimi');
-            if (content.includes('kiro:')) providers.push('kiro');
+            if (kimiConfigured) {providers.push('kimi');}
+            if (content.includes('kiro:')) {providers.push('kiro');}
 
             // Antigravity (OAuth or Key)
             let antigravityConfigured = false;
@@ -2304,7 +2315,7 @@ ${keyConfig}
                     // ignore error
                 }
             }
-            if (antigravityConfigured) providers.push('antigravity');
+            if (antigravityConfigured) {providers.push('antigravity');}
 
             // Gemini
             let geminiConfigured = false;
@@ -2341,7 +2352,7 @@ ${keyConfig}
     public async removeApiKey(key: string) {
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return;
+            if (!fs.existsSync(configPath)) {return;}
 
             let content = fs.readFileSync(configPath, 'utf8');
             const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2358,8 +2369,8 @@ ${keyConfig}
             } else {
                 vscode.window.showWarningMessage(LocalizationManager.getInstance().t('API Key not found in config.'));
             }
-        } catch (e) {
-            vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Failed to remove API key: {0}', [e]));
+        } catch (error: unknown) {
+            vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Failed to remove API key: {0}', getErrorMessage(error)));
         }
     }
 
@@ -2371,11 +2382,11 @@ ${keyConfig}
             ignoreFocusOut: true
         });
 
-        if (!newKey || newKey === oldKey) return;
+        if (!newKey || newKey === oldKey) {return;}
 
         try {
             const configPath = path.join(this._binDir, 'config.yaml');
-            if (!fs.existsSync(configPath)) return;
+            if (!fs.existsSync(configPath)) {return;}
 
             let content = fs.readFileSync(configPath, 'utf8');
             const escapedOldKey = oldKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2389,8 +2400,8 @@ ${keyConfig}
             } else {
                 vscode.window.showWarningMessage(lm.t('API Key not found in config.'));
             }
-        } catch (e) {
-            vscode.window.showErrorMessage(lm.t('Failed to update API key: {0}', [e]));
+        } catch (error: unknown) {
+            vscode.window.showErrorMessage(lm.t('Failed to update API key: {0}', getErrorMessage(error)));
         }
     }
 
@@ -2439,7 +2450,7 @@ ${keyConfig}
                     for (const pid of pidsToKill) {
                         cp.exec(`taskkill /PID ${pid} /F`, (kErr) => {
                             processed++;
-                            if (!kErr) killedAny = true;
+                            if (!kErr) {killedAny = true;}
 
                             if (processed === pidsToKill.size) {
                                 resolve(killedAny);
@@ -2466,7 +2477,7 @@ ${keyConfig}
                     for (const pid of pids) {
                         cp.exec(`kill -9 ${pid}`, (kErr) => {
                             processed++;
-                            if (!kErr) killedAny = true;
+                            if (!kErr) {killedAny = true;}
 
                             if (processed === pids.length) {
                                 resolve(killedAny);

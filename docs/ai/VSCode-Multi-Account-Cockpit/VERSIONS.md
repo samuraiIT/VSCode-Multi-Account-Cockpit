@@ -1,5 +1,19 @@
 # Versions
 
+## 20260503-022400-proxy-network-cleanup
+
+- Base commit: `5f60998`
+- Status: `completed`
+- Scope:
+  - isolated proxy network/download cleanup from the larger `proxyManager.ts` churn
+  - removed the dynamic `http` require in the fetch helper
+  - reduced duplicated partial-download cleanup branches
+- Changed source files:
+  - `src/storage_manager/proxy/proxyManager.ts`
+- Backup:
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-022400-proxy-network-cleanup/changed-files.patch`
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-022400-proxy-network-cleanup/rollback.md`
+
 ## 20260503-021300-cockpit-tools-webview-providers
 
 - Base commit: `948f9e7`

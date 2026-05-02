@@ -28,6 +28,8 @@
 - `npx tsc --noEmit --pretty false`
 - `npx eslint src/storage_manager/mcp/proxyMcpServer.ts src/storage_manager/profileManager.ts`
 - `npx eslint src/view/webview/cockpit_tools.js`
+- `npx tsc --noEmit --pretty false`
+- `npx eslint src/storage_manager/proxy/proxyManager.ts`
 
 ## Results
 
@@ -99,6 +101,8 @@
 - `2026-05-03`: `npx tsc --noEmit --pretty false` after storage-manager cleanup slice — passed
 - `2026-05-03`: `npx eslint src/storage_manager/mcp/proxyMcpServer.ts src/storage_manager/profileManager.ts` — passed with warnings only, no errors
 - `2026-05-03`: `npx eslint src/view/webview/cockpit_tools.js` — passed
+- `2026-05-03`: `npx tsc --noEmit --pretty false` after proxy network cleanup slice — passed
+- `2026-05-03`: `npx eslint src/storage_manager/proxy/proxyManager.ts` — passed with warnings only, no errors
 
 ## Remaining caveats
 
