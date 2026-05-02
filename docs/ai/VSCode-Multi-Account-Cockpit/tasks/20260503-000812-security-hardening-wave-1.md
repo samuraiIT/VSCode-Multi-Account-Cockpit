@@ -1,0 +1,37 @@
+# 20260503-000812-security-hardening-wave-1
+
+- Goal:
+  - reduce exploitability of the highest-impact validated security findings from the full-repo scan
+- Findings in scope:
+  - remote announcement -> arbitrary privileged command execution
+  - Google Drive OAuth callback CSRF / missing `state`
+  - stored XSS in sync stats markdown rendering path
+  - unsafe account import overwrite via crafted `account.id`
+  - local-storage delete / write escape via crafted path inputs
+  - Telegram username-only inbound auth bypass
+- Planned approach:
+  - add OAuth `state` verification and loopback-only callback binding
+  - restrict webview-driven command execution to a tight allowlist and validate external URL schemes
+  - render markdown with raw HTML disabled in sync stats paths
+  - reject unsafe account identifiers before writing shared account files
+  - enforce storage-root path guards for local sync file operations
+  - require trusted chat-id binding for username-based Telegram authorization
+- Files targeted:
+  - `src/controller/message_controller.ts`
+  - `src/services/importService.ts`
+  - `src/storage_manager/googleAuth.ts`
+  - `src/storage_manager/localStorage.ts`
+  - `src/storage_manager/quota/syncStatsWebview.ts`
+  - `src/storage_manager/sync.ts`
+  - `src/storage_manager/telegram/telegramService.ts`
+  - `src/view/webview/accounts_overview.js`
+  - `src/view/webview/dashboard_announcements.js`
+- Verification plan:
+  - targeted TypeScript tests/build if available
+  - targeted diff review for each sink/source path
+  - update `CHECKS.md` and finalize rollback notes after verification
+- Outcome:
+  - completed
+  - targeted ESLint checks returned warnings only
+  - `tsconfig` scope fixed; no-emit now reports only real source/dependency type issues
+  - deferred shard closed with additional hardening in `googleDrive.ts`, `cloudcode_base.ts`, and `sync.ts`

@@ -1,0 +1,89 @@
+# Checks
+
+## Executed
+
+- `codex mcp add context7 --url https://mcp.context7.com/mcp`
+- `codex mcp list`
+- `codex mcp get context7`
+- `codex exec ...` fresh-process Context7 smoke check
+- `npx eslint src --ext ts,js --quiet`
+- `npm run compile`
+- `npm test`
+- `npm run package`
+- command registration review against `package.json`
+- account snapshot schema review against upstream `cockpit-tools` provider index files
+- storage-manager compatibility review against upstream `antigravity-storage-manager`
+- `npx tsc --noEmit --pretty false`
+- `npx eslint src/controller/message_controller.ts src/storage_manager/googleAuth.ts src/storage_manager/quota/syncStatsWebview.ts src/storage_manager/sync.ts src/view/webview/dashboard_announcements.js src/view/webview/accounts_overview.js`
+- `npx eslint src/services/importService.ts src/storage_manager/localStorage.ts src/storage_manager/telegram/telegramService.ts`
+- `npx tsc --noEmit --pretty false` (after `tsconfig.json` scope fix)
+- `npx eslint src/shared/cloudcode_base.ts src/storage_manager/googleDrive.ts src/storage_manager/sync.ts`
+
+## Results
+
+- `2026-05-02`: `codex mcp add context7 --url https://mcp.context7.com/mcp` — passed, OAuth login completed
+- `2026-05-02`: `codex mcp list` — passed; `context7` is `enabled`
+- `2026-05-02`: `codex mcp get context7` — passed; transport `streamable_http`, URL `https://mcp.context7.com/mcp`
+- `2026-05-02`: fresh `codex exec` process successfully used `Context7` and confirmed `registerTool` is the recommended API over legacy `tool()`
+- `2026-05-02`: `npx eslint src --ext ts,js --quiet` — passed
+- `2026-05-02`: `npm run compile` — passed
+- `2026-05-02`: `npm test` — passed (`4` suites, `14` tests)
+- `2026-05-02`: `git diff --check` — passed
+- `2026-05-02`: `npm run package` — passed; built `vscode-multi-account-cockpit-1.0.0.vsix`
+- `2026-05-02`: `npm run package` still reports `2370` ESLint warnings during `npm run lint`, but `0` errors remain and packaging is no longer blocked
+- `2026-05-02`: verified runtime registration for:
+  - `multiCockpit.restore`
+  - `multiCockpit.importConversations`
+  - `multiCockpit.startMcpServer`
+  - `multiCockpit.stopMcpServer`
+- `2026-05-02`: added automated guard for `package.json` ↔ runtime registration parity of public `multiCockpit.*` commands
+- `2026-05-02`: verified Cockpit Tools account reader against upstream provider index file names:
+  - `accounts.json`
+  - `codex_accounts.json`
+  - `cursor_accounts.json`
+  - `github_copilot_accounts.json`
+  - `windsurf_accounts.json`
+  - `kiro_accounts.json`
+  - `gemini_accounts.json`
+  - `codebuddy_accounts.json`
+  - `codebuddy_cn_accounts.json`
+  - `workbuddy_accounts.json`
+  - `qoder_accounts.json`
+  - `trae_accounts.json`
+  - `zed_accounts.json`
+- `2026-05-02`: added automated regression coverage for:
+  - provider current-account resolution via `provider_current_accounts.json`
+  - malformed provider index tolerance without whole-snapshot failure
+- `2026-05-02`: focused repository review surfaced concrete risks in:
+  - conversation import overwrite flow
+  - backup retention cleanup scope
+  - proxy port-kill behavior
+  - MCP secret exposure via terminal command construction
+  - MCP autostart setting bridge consistency
+- `2026-05-03`: `npx tsc --noEmit --pretty false` — blocked by pre-existing project config issue: default include still pulls `docs/ai/**/files-before/*.ts` into the TypeScript program outside `rootDir`
+- `2026-05-03`: `tsconfig.json` updated to compile only `src/**/*.ts`; this removed the false-positive `docs/ai/**` compile noise and exposed the remaining real project type errors
+- `2026-05-03`: targeted ESLint on security-hardening files — passed with warnings only, no errors
+- `2026-05-03`: manual sink/source review completed for:
+  - OAuth callback state validation and listener binding
+  - webview `executeCommand` / `openUrl` bridge restrictions
+  - sync stats markdown rendering and HTML sinks
+  - import account file naming and local-storage path resolution
+  - Telegram inbound authorization checks
+- `2026-05-03`: deferred shard review completed for:
+  - `src/storage_manager/googleDrive.ts`
+  - `src/shared/cloudcode_base.ts`
+  - network/file-open boundaries in `src/storage_manager/sync.ts`
+- `2026-05-03`: added additional hardening for:
+  - Google Drive file/folder name validation and Drive query escaping
+  - Cloud Code base URL override allowlisting before bearer-token requests
+  - root-bound local path resolution for conversation file opens
+- `2026-05-03`: `npx tsc --noEmit --pretty false` after scope fix — still fails on pre-existing repository type errors in `src/**` and some dependency/lib typing gaps; no new hard failures were introduced by the security hardening wave
+
+## Remaining caveats
+
+- The active agent session did not hot-reload the newly added `Context7` server, so direct developer MCP tools still reported no loaded resources inside this same session.
+- MCP/Context7-backed review inside this exact interactive session therefore still relied mostly on local source inspection plus sub-agent review, even though fresh Codex subprocesses already saw the configured server.
+- Proxy/MCP terminal startup was verified at build/integration level; interactive end-to-end launch still depends on the local proxy binary/config present on the user machine.
+- Repo-wide warning-only lint debt still exists in legacy files (`indent`, `comma-dangle`, `quotes`, `@typescript-eslint/no-explicit-any`, and similar style-level rules), but it does not currently block `.vsix` packaging.
+- TypeScript no-emit verification is currently noisy for reasons unrelated to this fix wave until `tsconfig` excludes `docs/ai/**/backups/**` snapshots from compilation inputs.
+- TypeScript verification is now limited to real source inputs, but the repository still has unrelated type debt in `src/**` plus missing web/lib typing expectations from current dependencies.

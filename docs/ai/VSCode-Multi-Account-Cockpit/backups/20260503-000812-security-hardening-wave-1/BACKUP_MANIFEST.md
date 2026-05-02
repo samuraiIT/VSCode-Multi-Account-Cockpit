@@ -1,0 +1,25 @@
+# Backup Manifest
+
+- Version: `20260503-000812-security-hardening-wave-1`
+- Base commit: `1513f7cd2ecb5b24f56371bf882db596aa86fcb0`
+- Scope:
+  - `src/controller/message_controller.ts`
+  - `src/services/importService.ts`
+  - `src/storage_manager/googleAuth.ts`
+  - `src/storage_manager/googleDrive.ts`
+  - `src/storage_manager/localStorage.ts`
+  - `src/storage_manager/quota/syncStatsWebview.ts`
+  - `src/storage_manager/sync.ts`
+  - `src/storage_manager/telegram/telegramService.ts`
+  - `src/shared/cloudcode_base.ts`
+  - `src/view/webview/accounts_overview.js`
+  - `src/view/webview/dashboard_announcements.js`
+  - `tsconfig.json`
+- Pre-change capture:
+  - `pre-change-working-tree.patch`
+- Post-change capture:
+  - `changed-files.patch`
+- Rollback method:
+  - inspect the final `changed-files.patch`
+  - revert only files touched by this version
+  - preserve unrelated dirty-worktree changes outside the listed scope
