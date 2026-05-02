@@ -1,5 +1,20 @@
 # Versions
 
+## 20260503-014616-cockpit-tools-provider-expansion
+
+- Base commit: `7dfbf69`
+- Status: `completed`
+- Scope:
+  - isolated Cockpit Tools provider expansion into a standalone commit slice
+  - generalized account snapshot loading for current provider index files
+  - added regression coverage for shared current-account state and malformed provider files
+- Changed source files:
+  - `src/services/cockpitToolsAllAccounts.ts`
+  - `src/services/cockpitToolsAllAccounts.test.ts`
+- Backup:
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-014616-cockpit-tools-provider-expansion/changed-files.patch`
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-014616-cockpit-tools-provider-expansion/rollback.md`
+
 ## 20260503-000812-security-hardening-wave-1
 
 - Base commit: `1513f7cd2ecb5b24f56371bf882db596aa86fcb0`

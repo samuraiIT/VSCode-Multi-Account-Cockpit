@@ -1,5 +1,13 @@
 # AI Change Log
 
+## 20260503-014616-cockpit-tools-provider-expansion
+
+- Split the Cockpit Tools account reader expansion out of the broader dirty worktree into its own reviewable slice.
+- Replaced the hard-coded 4-provider readers with provider definitions that cover the current Cockpit Tools export set.
+- Added shared current-account resolution through `provider_current_accounts.json` for providers that do not persist `current_account_id` inline.
+- Preserved graceful degradation so malformed provider files are logged and skipped instead of breaking the whole snapshot.
+- Added targeted regression tests for multi-provider loading and malformed JSON tolerance.
+
 ## 20260503-000812-security-hardening-wave-1
 
 - Started a focused security remediation wave for the highest-impact validated findings from the repository scan.

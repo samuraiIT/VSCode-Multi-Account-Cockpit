@@ -19,6 +19,8 @@
 - `npx tsc --noEmit --pretty false` (after `tsconfig.json` scope fix)
 - `npx eslint src/shared/cloudcode_base.ts src/storage_manager/googleDrive.ts src/storage_manager/sync.ts`
 - `npx tsc --noEmit --pretty false` (after source type sync)
+- `npx jest src/services/cockpitToolsAllAccounts.test.ts --runInBand`
+- `npx eslint src/services/cockpitToolsAllAccounts.ts src/services/cockpitToolsAllAccounts.test.ts`
 
 ## Results
 
@@ -81,6 +83,8 @@
   - root-bound local path resolution for conversation file opens
 - `2026-05-03`: `npx tsc --noEmit --pretty false` after scope fix — still fails on pre-existing repository type errors in `src/**` and some dependency/lib typing gaps; no new hard failures were introduced by the security hardening wave
 - `2026-05-03`: `npx tsc --noEmit --pretty false` after targeted type fixes — passed
+- `2026-05-03`: `npx jest src/services/cockpitToolsAllAccounts.test.ts --runInBand` — passed (`1` suite, `2` tests)
+- `2026-05-03`: `npx eslint src/services/cockpitToolsAllAccounts.ts src/services/cockpitToolsAllAccounts.test.ts` — passed
 
 ## Remaining caveats
 
