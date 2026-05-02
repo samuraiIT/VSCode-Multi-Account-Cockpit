@@ -1,141 +1,171 @@
-# sample-codex-coauthor
+# VSCode Multi-Account Cockpit
 
-[![Verify attribution bundle](https://github.com/sigridjineth/sample-codex-coauthor/actions/workflows/verify-attribution-bundle.yml/badge.svg?branch=main)](https://github.com/sigridjineth/sample-codex-coauthor/actions/workflows/verify-attribution-bundle.yml)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/samuraiIT/VSCode-Multi-Account-Cockpit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-Sample repository showing how to make Git commits include a GitHub-recognized Codex co-author trailer automatically.
+**Unified AI IDE account manager for VS Code** — manage Antigravity, Codex, GitHub Copilot, Windsurf, Kiro, Cursor, Gemini CLI, CodeBuddy, Qoder, Trae, and Zed from a single dashboard panel.
 
-## What this demonstrates
+Integrates all four projects:
+1. **Cockpit Tools** – full multi-platform account management & synchronisation
+2. **Antigravity Multi-Account Cockpit** – one-click account switching, quota monitoring
+3. **VSCode Antigravity Cockpit** – Webview dashboard, status bar, grouping
+4. **Antigravity Storage Manager** – backup/restore, export/import, multi-profile storage
 
-- automatic `Co-authored-by:` trailer injection via `prepare-commit-msg`
-- a repo-local setup script
-- a Codex default that you can extend with other AI or human co-authors
+---
 
-## Codex trailer
+## ✨ Features
 
-This repo defaults to:
+| Feature | Description |
+|---|---|
+| **12-Platform Support** | Antigravity · Codex · GitHub Copilot · Windsurf · Kiro · Cursor · Gemini CLI · CodeBuddy · CodeBuddy CN · Qoder · Trae · Zed |
+| **Auto-import from Cockpit Tools** | Detects and imports all accounts from a locally installed [Cockpit Tools](https://github.com/samuraiIT/cockpit-tools) installation |
+| **Quota Dashboard** | Interactive WebView panel with per-model progress bars, reset timers, plan information |
+| **Status Bar** | Live quota indicator in the VS Code status bar with configurable format |
+| **Account CRUD** | Add, update, delete accounts; set the active account per platform |
+| **Backup & Restore** | Create timestamped backups; restore from any saved backup |
+| **Export / Import JSON** | Move accounts between machines or share with team members |
+| **Auto-Refresh** | Configurable interval (1–60 min) for background quota polling |
+| **Cross-platform** | Windows · macOS · Linux |
 
-```text
-Co-authored-by: codex <codex@openai.com>
-```
+---
 
-The current basis for that address is the OpenAI Codex GitHub discussion below, where a March 17, 2026 comment reports that this trailer shows the Codex avatar on GitHub:
+## 🚀 Quick Start
 
-- https://github.com/openai/codex/discussions/2807
+### Install
 
-## Quick start
-
-```bash
-./scripts/setup-codex-attribution.sh
-```
-
-Then make a commit normally:
-
-```bash
-git add .
-git commit -m "Add feature"
-```
-
-The hook appends the trailer automatically.
-
-## Copy/paste into your repo
-
-If you just want the fastest adoption path, run this from this sample repository:
+1. Install from the VS Code Extension Marketplace or open `.vsix` directly:
 
 ```bash
-./scripts/bootstrap-into-target-repo.sh /path/to/your-repo
+code --install-extension vscode-multi-account-cockpit-1.0.0.vsix
 ```
 
-Then, inside your target repo, future commits will automatically append:
+2. Open the dashboard with `Ctrl+Shift+P` → **Multi-Account Cockpit: Open Dashboard**
 
-```text
-Co-authored-by: codex <codex@openai.com>
+### Import from Cockpit Tools
+
+If you already use [Cockpit Tools](https://github.com/samuraiIT/cockpit-tools), one command imports everything:
+
+```
+Ctrl+Shift+P → Multi-Account Cockpit: Import Accounts from Cockpit Tools
 ```
 
-To add another co-author later:
+The importer auto-detects the Cockpit Tools data directory:
+- **macOS**: `~/Library/Application Support/com.antigravity.cockpit-tools`
+- **Windows**: `%APPDATA%\com.antigravity.cockpit-tools`
+- **Linux**: `~/.config/com.antigravity.cockpit-tools`
+
+You can also override the path in settings (`multiAccountCockpit.cockpitToolsDataDir`).
+
+---
+
+## 📋 Commands
+
+| Command | Description |
+|---|---|
+| `Multi-Account Cockpit: Open Dashboard` | Open the interactive WebView dashboard |
+| `Multi-Account Cockpit: Import Accounts from Cockpit Tools` | Auto-detect and import all Cockpit Tools accounts |
+| `Multi-Account Cockpit: Refresh All Quotas` | Fetch fresh quota data for all accounts |
+| `Multi-Account Cockpit: Add Account` | Add an account manually |
+| `Multi-Account Cockpit: Export Accounts to JSON` | Export all accounts to a JSON file |
+| `Multi-Account Cockpit: Import Accounts from JSON` | Import accounts from a previously exported JSON |
+| `Multi-Account Cockpit: Backup Accounts` | Create a timestamped backup in extension storage |
+| `Multi-Account Cockpit: Restore Accounts from Backup` | Pick and restore a backup |
+| `Multi-Account Cockpit: Diagnose Environment` | Print diagnostics (paths, account counts) to the output channel |
+
+---
+
+## ⚙️ Configuration
+
+| Setting | Default | Description |
+|---|---|---|
+| `multiAccountCockpit.autoRefreshInterval` | `5` | Auto-refresh interval in minutes (1–60) |
+| `multiAccountCockpit.cockpitToolsDataDir` | `""` | Cockpit Tools data directory (empty = auto-detect) |
+| `multiAccountCockpit.statusBarFormat` | `full` | Status bar format: `icon` · `dot` · `percent` · `dot_percent` · `name_percent` · `full` |
+| `multiAccountCockpit.warningThreshold` | `30` | Quota warning threshold (%) |
+| `multiAccountCockpit.criticalThreshold` | `10` | Quota critical threshold (%) |
+| `multiAccountCockpit.notificationsEnabled` | `true` | Enable quota threshold notifications |
+| `multiAccountCockpit.language` | `auto` | UI language |
+
+---
+
+## 🗂️ Data Storage
+
+All data is stored **locally** on your machine:
+
+| Data | Location |
+|---|---|
+| Accounts & settings | VS Code global storage `accounts.json` |
+| Backups | `globalStorage/backups/backup-<timestamp>.json` |
+
+Nothing is uploaded to any remote server. Network requests are made only to fetch quota data from the respective AI provider APIs using the credentials you provide.
+
+---
+
+## 🔒 Security
+
+- Credentials (tokens) are stored in the VS Code global storage directory on your local filesystem.
+- No third-party cloud sync — data stays on your machine.
+- Backups are plain JSON; **scrub tokens before sharing** backup files.
+- When importing from Cockpit Tools the extension reads their files read-only and never modifies them.
+
+---
+
+## 🏗️ Project Structure
+
+```
+src/
+  extension.ts            — Entry point, command registration, auto-refresh loop
+  types.ts                — Shared TypeScript interfaces and enums
+  accountManager.ts       — CRUD, persistence, export/import, backup/restore
+  cockpitToolsImporter.ts — Auto-import from Cockpit Tools data directory
+  quotaService.ts         — Per-platform quota API calls
+  dashboardProvider.ts    — Interactive WebView dashboard
+  statusBarManager.ts     — VS Code status bar item
+  processManager.ts       — IDE process launch helpers
+  utils.ts                — Shared utility functions
+assets/
+  icon.svg                — Extension icon
+```
+
+---
+
+## 🛠️ Build from Source
+
+**Requirements**: Node.js ≥ 18, npm ≥ 9
 
 ```bash
-git config --local --add ai.coauthor "Name <email@example.com>"
+git clone https://github.com/samuraiIT/VSCode-Multi-Account-Cockpit
+cd VSCode-Multi-Account-Cockpit
+npm install
+npm run compile
+# Press F5 in VS Code to launch the Extension Development Host
 ```
 
-## Reuse this in another repository
+---
 
-To copy the hook, setup script, and Codex skills into another existing Git repository:
+## 🔄 Rollback Instructions
 
-```bash
-./scripts/bootstrap-into-target-repo.sh /path/to/other-repo
-```
+1. **Backup** before making changes:
+   ```
+   Ctrl+Shift+P → Multi-Account Cockpit: Backup Accounts
+   ```
+2. **Restore** from backup:
+   ```
+   Ctrl+Shift+P → Multi-Account Cockpit: Restore Accounts from Backup
+   ```
 
-If the target already has different versions of any managed files, the bootstrap script stops before changing anything. Use `--force` if you intentionally want to overwrite them:
+---
 
-```bash
-./scripts/bootstrap-into-target-repo.sh --force /path/to/other-repo
-```
+## 📝 License
 
-After copying the files, the bootstrap script automatically runs the target repo's `scripts/setup-codex-attribution.sh`.
+MIT
 
-## CI verification
+---
 
-This repository also includes a GitHub Actions workflow that validates the attribution bundle on every push and pull request.
+## 🙏 Acknowledgements
 
-It runs:
-
-- shell syntax checks for the managed scripts
-- bootstrap into a fresh temporary Git repository
-- a test commit that must include `Co-authored-by: codex <codex@openai.com>`
-
-## Codex skill
-
-This repo also includes a repo-local Codex skill that installs or repairs the hook setup:
-
-```text
-$install-codex-coauthor-hook
-```
-
-Skill files live here:
-
-```text
-.agents/skills/install-codex-coauthor-hook/
-```
-
-The skill wraps the existing setup script so Codex can enable the deterministic Git hook without you having to remember the shell command.
-
-This repo also includes a second skill for adding more co-authors to the repo-local Git config:
-
-```text
-$add-ai-coauthor
-```
-
-Use that skill when you want to add another `ai.coauthor` entry such as a human collaborator or an exact trailer string you want GitHub to parse.
-
-There is also a status skill for checking whether attribution is currently wired correctly:
-
-```text
-$show-ai-attribution-status
-```
-
-That skill reports the hook path, commit template, configured co-authors, and the trailers on the most recent commit.
-
-## Add more co-authors
-
-You can add more trailers without editing the hook:
-
-```bash
-git config --local --add ai.coauthor "Gemini <YOUR_GITHUB-LINKED-EMAIL>"
-git config --local --add ai.coauthor "Jane Dev <jane@example.com>"
-```
-
-GitHub counts co-author contributions when the trailer email is associated with that GitHub account.
-
-GitHub's co-author trailer format is documented here:
-
-- https://docs.github.com/articles/creating-a-commit-with-multiple-authors
-
-## Why the repo uses a hook
-
-This repo uses a local Git hook because the discussion above is about adding native Codex support, which suggests manual or local automation is still the practical workaround.
-
-## Notes
-
-- The hook skips merge commits.
-- The hook avoids adding duplicate trailers.
-- Set `SKIP_AI_COAUTHORS=1` if you want to bypass injection for a single commit.
+This extension integrates concepts and patterns from:
+- [samuraiIT/cockpit-tools](https://github.com/samuraiIT/cockpit-tools)
+- [samuraiIT/antigravity-cockpit](https://github.com/samuraiIT/antigravity-cockpit)
+- [samuraiIT/vscode-antigravity-cockpit](https://github.com/samuraiIT/vscode-antigravity-cockpit)
+- [samuraiIT/antigravity-storage-manager](https://github.com/samuraiIT/antigravity-storage-manager)

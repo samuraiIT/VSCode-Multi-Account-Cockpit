@@ -1,0 +1,157 @@
+{
+  "name": "vscode-multi-account-cockpit",
+  "displayName": "VSCode Multi-Account Cockpit",
+  "description": "Unified AI IDE account manager — manage Antigravity, Codex, GitHub Copilot, Windsurf, Kiro, Cursor and more from a single VS Code panel.",
+  "version": "1.0.0",
+  "publisher": "samuraiIT",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samuraiIT/VSCode-Multi-Account-Cockpit"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "antigravity",
+    "codex",
+    "copilot",
+    "windsurf",
+    "cursor",
+    "multi-account",
+    "quota",
+    "cockpit"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "multiAccountCockpit.openDashboard",
+        "title": "Multi-Account Cockpit: Open Dashboard",
+        "icon": "$(account)"
+      },
+      {
+        "command": "multiAccountCockpit.importFromCockpitTools",
+        "title": "Multi-Account Cockpit: Import Accounts from Cockpit Tools"
+      },
+      {
+        "command": "multiAccountCockpit.refreshQuotas",
+        "title": "Multi-Account Cockpit: Refresh All Quotas"
+      },
+      {
+        "command": "multiAccountCockpit.exportAccounts",
+        "title": "Multi-Account Cockpit: Export Accounts to JSON"
+      },
+      {
+        "command": "multiAccountCockpit.importAccountsJson",
+        "title": "Multi-Account Cockpit: Import Accounts from JSON"
+      },
+      {
+        "command": "multiAccountCockpit.backupAccounts",
+        "title": "Multi-Account Cockpit: Backup Accounts"
+      },
+      {
+        "command": "multiAccountCockpit.restoreAccounts",
+        "title": "Multi-Account Cockpit: Restore Accounts from Backup"
+      },
+      {
+        "command": "multiAccountCockpit.addAccount",
+        "title": "Multi-Account Cockpit: Add Account"
+      },
+      {
+        "command": "multiAccountCockpit.diagnose",
+        "title": "Multi-Account Cockpit: Diagnose Environment"
+      }
+    ],
+    "configuration": {
+      "title": "Multi-Account Cockpit",
+      "properties": {
+        "multiAccountCockpit.autoRefreshInterval": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Auto-refresh interval in minutes (1–60)."
+        },
+        "multiAccountCockpit.cockpitToolsDataDir": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Cockpit Tools data directory (leave empty for auto-detection)."
+        },
+        "multiAccountCockpit.statusBarFormat": {
+          "type": "string",
+          "enum": [
+            "icon",
+            "dot",
+            "percent",
+            "dot_percent",
+            "name_percent",
+            "full"
+          ],
+          "default": "full",
+          "description": "Status bar display format."
+        },
+        "multiAccountCockpit.warningThreshold": {
+          "type": "number",
+          "default": 30,
+          "description": "Quota warning threshold (%)."
+        },
+        "multiAccountCockpit.criticalThreshold": {
+          "type": "number",
+          "default": 10,
+          "description": "Quota critical threshold (%)."
+        },
+        "multiAccountCockpit.notificationsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show quota threshold notifications."
+        },
+        "multiAccountCockpit.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "zh-cn",
+            "zh-tw",
+            "ja",
+            "ko",
+            "de",
+            "es",
+            "fr",
+            "it",
+            "pt",
+            "ru",
+            "tr",
+            "pl",
+            "cs",
+            "ar",
+            "vi",
+            "id"
+          ],
+          "default": "auto",
+          "description": "UI language."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [],
+      "view/title": []
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
