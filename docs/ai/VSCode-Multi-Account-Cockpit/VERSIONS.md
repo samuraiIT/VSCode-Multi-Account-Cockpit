@@ -1,5 +1,21 @@
 # Versions
 
+## 20260503-015100-backup-config-alignment
+
+- Base commit: `d10f7ff`
+- Status: `completed`
+- Scope:
+  - isolated backup manager contract changes into a dedicated slice
+  - aligned enablement and retention with `multiCockpit.backup.*`
+  - preserved legacy path/interval compatibility for imported upstream behavior
+  - added backup target and retention regression coverage
+- Changed source files:
+  - `src/storage_manager/backup.ts`
+  - `src/storage_manager/backup.test.ts`
+- Backup:
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-015100-backup-config-alignment/changed-files.patch`
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-015100-backup-config-alignment/rollback.md`
+
 ## 20260503-014616-cockpit-tools-provider-expansion
 
 - Base commit: `7dfbf69`

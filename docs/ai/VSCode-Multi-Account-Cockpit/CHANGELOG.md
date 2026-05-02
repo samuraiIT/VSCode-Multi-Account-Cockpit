@@ -1,5 +1,13 @@
 # AI Change Log
 
+## 20260503-015100-backup-config-alignment
+
+- Split the backup manager behavior changes into a separate reviewable slice.
+- Switched backup enablement and retention handling to the public `multiCockpit.backup.*` settings while keeping legacy path/interval reads for compatibility.
+- Added explicit `.zip` target handling so manual backup destinations behave predictably.
+- Changed retention cleanup to age-based deletion in the default backup directory, matching the public `retentionDays` setting.
+- Added targeted regression tests for target resolution and expired-backup cleanup.
+
 ## 20260503-014616-cockpit-tools-provider-expansion
 
 - Split the Cockpit Tools account reader expansion out of the broader dirty worktree into its own reviewable slice.

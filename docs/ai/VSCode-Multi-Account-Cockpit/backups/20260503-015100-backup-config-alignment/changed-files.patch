@@ -1,0 +1,272 @@
+diff --git a/src/storage_manager/backup.ts b/src/storage_manager/backup.ts
+index e3d3657..fb74b7b 100644
+--- a/src/storage_manager/backup.ts
++++ b/src/storage_manager/backup.ts
+@@ -1,12 +1,15 @@
+ import * as vscode from 'vscode';
+ import * as fs from 'fs';
+ import * as path from 'path';
+-import { LocalizationManager } from './l10n/localizationManager';
+-
+ import archiver from 'archiver';
++import { LocalizationManager } from './l10n/localizationManager';
+ 
++const LEGACY_EXT_NAME = 'antigravity-storage-manager';
++const CONFIG_ROOT = 'multiCockpit';
+ 
+-const EXT_NAME = 'antigravity-storage-manager';
++function getErrorMessage(error: unknown): string {
++    return error instanceof Error ? error.message : String(error);
++}
+ 
+ export class BackupManager {
+     private storageRoot: string;
+@@ -22,20 +25,18 @@ export class BackupManager {
+         this.convDir = path.join(storageRoot, 'conversations');
+     }
+ 
+-    /**
+-     * Initialize backup manager
+-     */
+     initialize() {
+-        // Run initial check after a short delay to let VS Code startup finish
+         setTimeout(() => this.checkAndSchedule(), 10000);
+ 
+-        // Listen for config changes
+         this.context.subscriptions.push(
+-            vscode.workspace.onDidChangeConfiguration(e => {
+-                if (e.affectsConfiguration(`${EXT_NAME}.backup`)) {
++            vscode.workspace.onDidChangeConfiguration((event) => {
++                if (
++                    event.affectsConfiguration(`${CONFIG_ROOT}.backup`)
++                    || event.affectsConfiguration(`${LEGACY_EXT_NAME}.backup`)
++                ) {
+                     this.checkAndSchedule();
+                 }
+-            })
++            }),
+         );
+     }
+ 
+@@ -45,27 +46,23 @@ export class BackupManager {
+             this.timer = undefined;
+         }
+ 
+-        const config = vscode.workspace.getConfiguration(`${EXT_NAME}.backup`);
+-        const enabled = config.get<boolean>('enabled', false);
+-
++        const enabled = vscode.workspace.getConfiguration(CONFIG_ROOT).get<boolean>('backup.autoBackup', true);
+         if (!enabled) {
+-            console.log('Antigravity Backups: Disabled');
++            console.log('Multi-Account Cockpit Backups: Disabled');
+             return;
+         }
+ 
+-        const intervalHours = config.get<number>('interval', 24);
+-        const intervalMs = intervalHours * 60 * 60 * 1000;
+-
+-
++        const legacyBackupConfig = vscode.workspace.getConfiguration(`${LEGACY_EXT_NAME}.backup`);
++        const intervalHours = legacyBackupConfig.get<number>('interval', 24);
++        const intervalMs = Math.max(1, intervalHours) * 60 * 60 * 1000;
+ 
+-        console.log(`Antigravity Backups: Enabled. Interval: ${intervalHours}h`);
++        console.log(`Multi-Account Cockpit Backups: Enabled. Interval: ${intervalHours}h`);
+ 
+         this.timer = setInterval(() => {
+-            this.performScheduledBackup();
++            void this.performScheduledBackup();
+         }, intervalMs);
+ 
+-        // Also check if we should run now (missed window or first run)
+-        this.checkLastBackupTime(intervalMs);
++        void this.checkLastBackupTime(intervalMs);
+     }
+ 
+     private async checkLastBackupTime(intervalMs: number) {
+@@ -80,55 +77,84 @@ export class BackupManager {
+     private async performScheduledBackup() {
+         try {
+             await this.backupNow();
+-        } catch (error: any) {
++        } catch (error: unknown) {
+             const lm = LocalizationManager.getInstance();
+-            vscode.window.showErrorMessage(lm.t('Scheduled backup failed: {0}', error.message));
++            vscode.window.showErrorMessage(lm.t('Scheduled backup failed: {0}', getErrorMessage(error)));
+         }
+     }
+ 
+-    /**
+-     * Perform immediate backup
+-     */
+-    /**
+-     * Perform immediate backup
+-     */
+     async backupNow(targetPath?: string, token?: vscode.CancellationToken): Promise<string> {
+-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+-        const config = vscode.workspace.getConfiguration(`${EXT_NAME}.backup`);
+-
+-        let backupDir = targetPath;
+-        if (!backupDir) {
+-            backupDir = config.get<string>('path');
+-            if (!backupDir || backupDir.trim() === '') {
+-                backupDir = path.join(this.storageRoot, 'backups');
+-            }
++        if (token?.isCancellationRequested) {
++            throw new vscode.CancellationError();
+         }
+ 
+-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+-
+-        if (!fs.existsSync(backupDir)) {
+-            fs.mkdirSync(backupDir, { recursive: true });
++        const resolvedTarget = this.resolveBackupTarget(targetPath);
++        if (token?.isCancellationRequested) {
++            throw new vscode.CancellationError();
+         }
+ 
+-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+-        const filename = `backup-${timestamp}.zip`;
+-        const filePath = path.join(backupDir, filename);
+-
+-        await this.createZip(filePath, token);
++        await this.createZip(resolvedTarget.filePath, token);
+ 
+-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
++        if (token?.isCancellationRequested) {
++            throw new vscode.CancellationError();
++        }
+ 
+-        // Update last backup time
+         await this.context.globalState.update('lastBackupTime', new Date().toISOString());
++        if (resolvedTarget.shouldApplyRetentionCleanup) {
++            await this.cleanOldBackups(resolvedTarget.directoryPath);
++        }
+ 
+-        // Enforce retention
+-        await this.cleanOldBackups(backupDir);
++        return resolvedTarget.filePath;
++    }
++
++    private resolveBackupTarget(targetPath?: string): {
++        directoryPath: string;
++        filePath: string;
++        shouldApplyRetentionCleanup: boolean;
++    } {
++        const legacyBackupConfig = vscode.workspace.getConfiguration(`${LEGACY_EXT_NAME}.backup`);
++        const configuredPath = legacyBackupConfig.get<string>('path');
++        const defaultDirectory = configuredPath && configuredPath.trim().length > 0
++            ? configuredPath
++            : path.join(this.storageRoot, 'backups');
++
++        if (!targetPath || targetPath.trim().length === 0) {
++            fs.mkdirSync(defaultDirectory, { recursive: true });
++            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
++            return {
++                directoryPath: defaultDirectory,
++                filePath: path.join(defaultDirectory, `backup-${timestamp}.zip`),
++                shouldApplyRetentionCleanup: true,
++            };
++        }
+ 
+-        return filePath;
++        const normalizedTarget = path.resolve(targetPath);
++        const looksLikeZipFile = normalizedTarget.toLowerCase().endsWith('.zip');
++
++        if (looksLikeZipFile) {
++            const directoryPath = path.dirname(normalizedTarget);
++            fs.mkdirSync(directoryPath, { recursive: true });
++            return {
++                directoryPath,
++                filePath: normalizedTarget,
++                shouldApplyRetentionCleanup: false,
++            };
++        }
++
++        fs.mkdirSync(normalizedTarget, { recursive: true });
++        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
++        return {
++            directoryPath: normalizedTarget,
++            filePath: path.join(normalizedTarget, `backup-${timestamp}.zip`),
++            shouldApplyRetentionCleanup: false,
++        };
+     }
+ 
+     private createZip(zipPath: string, token?: vscode.CancellationToken): Promise<void> {
+-        if (token?.isCancellationRequested) return Promise.reject(new vscode.CancellationError());
++        if (token?.isCancellationRequested) {
++            return Promise.reject(new vscode.CancellationError());
++        }
++
+         return new Promise((resolve, reject) => {
+             const output = fs.createWriteStream(zipPath);
+             const archive = archiver('zip', { zlib: { level: 9 } });
+@@ -137,14 +163,13 @@ export class BackupManager {
+                 token.onCancellationRequested(() => {
+                     archive.abort();
+                     output.close();
+-                    fs.unlink(zipPath, () => { }); // Clean up partial file
++                    fs.unlink(zipPath, () => { });
+                     reject(new vscode.CancellationError());
+                 });
+             }
+ 
+             output.on('close', resolve);
+             archive.on('error', reject);
+-
+             archive.pipe(output);
+ 
+             if (fs.existsSync(this.brainDir)) {
+@@ -154,36 +179,33 @@ export class BackupManager {
+                 archive.directory(this.convDir, 'conversations');
+             }
+ 
+-            archive.finalize();
++            void archive.finalize();
+         });
+     }
+ 
+     private async cleanOldBackups(backupDir: string) {
+-        const config = vscode.workspace.getConfiguration(`${EXT_NAME}.backup`);
+-        const retention = config.get<number>('retention', 10);
+-
+-        if (retention <= 0) return;
++        const retentionDays = vscode.workspace.getConfiguration(CONFIG_ROOT).get<number>('backup.retentionDays', 30);
++        if (!retentionDays || retentionDays <= 0 || !fs.existsSync(backupDir)) {
++            return;
++        }
+ 
+         try {
++            const cutoffMs = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+             const files = fs.readdirSync(backupDir)
+-                .filter(f => f.startsWith('backup-') && f.endsWith('.zip'))
+-                .map(f => ({
+-                    name: f,
+-                    path: path.join(backupDir, f),
+-                    time: fs.statSync(path.join(backupDir, f)).mtime.getTime()
++                .filter((file) => file.toLowerCase().endsWith('.zip'))
++                .map((file) => ({
++                    path: path.join(backupDir, file),
++                    modifiedAt: fs.statSync(path.join(backupDir, file)).mtime.getTime(),
+                 }))
+-                .sort((a, b) => b.time - a.time); // Newest first
++                .filter((file) => file.modifiedAt < cutoffMs);
+ 
+-            if (files.length > retention) {
+-                const toDelete = files.slice(retention);
+-                for (const file of toDelete) {
+-                    fs.unlinkSync(file.path);
+-                    console.log(`Deleted old backup: ${file.name}`);
+-                }
++            for (const file of files) {
++                fs.unlinkSync(file.path);
++                console.log(`Deleted expired backup: ${path.basename(file.path)}`);
+             }
+-        } catch (e: any) {
++        } catch (error: unknown) {
+             const lm = LocalizationManager.getInstance();
+-            vscode.window.showErrorMessage(lm.t('Failed to clean old backups: {0}', e.message));
++            vscode.window.showErrorMessage(lm.t('Failed to clean old backups: {0}', getErrorMessage(error)));
+         }
+     }
+ }
