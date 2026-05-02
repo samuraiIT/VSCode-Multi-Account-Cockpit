@@ -23,9 +23,6 @@ function isWindowsNotFoundError(message: string): boolean {
         'not found',
         'cannot find',
         'is not recognized as an internal or external command',
-        '不是内部或外部命令',
-        '找不到',
-        '見つかりません',
     ].some((keyword) => normalized.includes(keyword));
 }
 
