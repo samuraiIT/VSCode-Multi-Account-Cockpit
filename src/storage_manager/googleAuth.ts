@@ -12,6 +12,7 @@ import * as crypto from 'crypto';
 // 4. Enter Client ID and Secret in VS Code settings for this extension
 const REDIRECT_PORT = 47842;
 const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/callback`;
+const CALLBACK_HOST = '127.0.0.1';
 
 // Scopes for Google Drive access
 const SCOPES = [
@@ -43,6 +44,7 @@ export class GoogleAuthProvider {
     private context: vscode.ExtensionContext;
     private tokens: StoredTokens | null = null;
     private server: http.Server | null = null;
+    private pendingAuthState: string | null = null;
     private currentAccountId: string | null = null;
     private _onDidChangeSessions = new vscode.EventEmitter<void>();
 
@@ -187,7 +189,7 @@ export class GoogleAuthProvider {
     async switchAccount(accountId: string): Promise<void> {
         const accounts = await this.getAccounts();
         const account = accounts.find(a => a.id === accountId);
-        if (!account) throw new Error('Account not found');
+        if (!account) {throw new Error('Account not found');}
 
         await this.loadAccount(accountId);
 
@@ -366,6 +368,7 @@ export class GoogleAuthProvider {
         }
 
         return new Promise((resolve, reject) => {
+            this.pendingAuthState = this.generateAuthState();
             // Create a local HTTP server to receive the OAuth callback
             this.server = http.createServer(async (req, res) => {
                 try {
@@ -374,6 +377,26 @@ export class GoogleAuthProvider {
                     if (parsedUrl.pathname === '/callback') {
                         const code = parsedUrl.query.code as string;
                         const error = parsedUrl.query.error as string;
+                        const state = parsedUrl.query.state as string;
+
+                        if (!state || !this.pendingAuthState || state !== this.pendingAuthState) {
+                            res.writeHead(400, { 'Content-Type': 'text/html' });
+                            res.end(`
+                                <!DOCTYPE html>
+                                <html>
+                                <head><meta charset="UTF-8"><title>Authentication Failed</title></head>
+                                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+                                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px; max-width: 420px; width: 90%; text-align: center;">
+                                        <h1 style="color: #f85149; margin-top: 0;">Authentication Failed</h1>
+                                        <p>Invalid OAuth state. Please close this page and retry the sign-in flow from VS Code.</p>
+                                    </div>
+                                </body>
+                                </html>
+                            `);
+                            this.closeServer();
+                            reject(new Error(lm.t('Authentication failed due to an invalid OAuth state. Please try again.')));
+                            return;
+                        }
 
                         if (error) {
                             // Build user-friendly troubleshooting hint based on error type
@@ -610,11 +633,12 @@ export class GoogleAuthProvider {
                 }
             });
 
-            this.server.listen(REDIRECT_PORT, () => {
+            this.server.listen(REDIRECT_PORT, CALLBACK_HOST, () => {
                 // Generate the authorization URL
                 const authUrl = this.oauth2Client.generateAuthUrl({
                     access_type: 'offline',
                     scope: SCOPES,
+                    state: this.pendingAuthState || undefined,
                     prompt: isAdd ? 'consent select_account' : 'consent' // Force consent to get refresh token, select_account if adding
                 });
 
@@ -699,10 +723,15 @@ export class GoogleAuthProvider {
      * Close the local callback server
      */
     private closeServer(): void {
+        this.pendingAuthState = null;
         if (this.server) {
             this.server.close();
             this.server = null;
         }
+    }
+
+    private generateAuthState(): string {
+        return crypto.randomBytes(32).toString('hex');
     }
 
     /**

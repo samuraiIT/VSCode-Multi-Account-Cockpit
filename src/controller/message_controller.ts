@@ -44,6 +44,11 @@ export interface AccountSwitchExecutionResult {
 }
 
 export class MessageController {
+    private static readonly ALLOWED_WEBVIEW_COMMANDS = new Set<string>([
+        'agCockpit.accountTree.refresh',
+        'agCockpit.openAccountsOverview',
+    ]);
+    private static readonly ALLOWED_EXTERNAL_PROTOCOLS = new Set<string>(['http', 'https']);
 
     private context: vscode.ExtensionContext;
     
@@ -58,6 +63,26 @@ export class MessageController {
     ) {
         this.context = context;
         this.setupMessageHandling();
+    }
+
+    private isAllowedWebviewCommand(commandId: unknown): commandId is string {
+        return typeof commandId === 'string' && MessageController.ALLOWED_WEBVIEW_COMMANDS.has(commandId);
+    }
+
+    private getSafeExternalUri(rawUrl: unknown): vscode.Uri | null {
+        if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
+            return null;
+        }
+
+        try {
+            const uri = vscode.Uri.parse(rawUrl);
+            if (!MessageController.ALLOWED_EXTERNAL_PROTOCOLS.has(uri.scheme)) {
+                return null;
+            }
+            return uri;
+        } catch {
+            return null;
+        }
     }
 
     private async applyQuotaSourceChange(
@@ -328,9 +353,6 @@ export class MessageController {
                     } else {
                         logger.info('Dashboard initialized (no cache, performing full sync)');
                         this.reactor.syncTelemetry();
-                    }
-                    if (this.refreshService) {
-
                     }
                     {
                         const annState = await announcementService.getState();
@@ -1320,19 +1342,26 @@ export class MessageController {
                     break;
 
                 case 'openUrl':
-                    if (message.url) {
-                        vscode.env.openExternal(vscode.Uri.parse(message.url));
+                    {
+                        const safeUri = this.getSafeExternalUri(message.url);
+                        if (safeUri) {
+                            vscode.env.openExternal(safeUri);
+                        } else {
+                            logger.warn(`[MsgCtrl] Blocked unsafe external URL from webview: ${String(message.url ?? '')}`);
+                        }
                     }
                     break;
 
                 case 'executeCommand':
-                    if (message.commandId) {
+                    if (this.isAllowedWebviewCommand(message.commandId)) {
                         const args = message.commandArgs;
                         if (args && Array.isArray(args) && args.length > 0) {
                             await vscode.commands.executeCommand(message.commandId, ...args);
                         } else {
                             await vscode.commands.executeCommand(message.commandId);
                         }
+                    } else if (message.commandId) {
+                        logger.warn(`[MsgCtrl] Blocked non-allowlisted webview command: ${String(message.commandId)}`);
                     }
                     break;
 

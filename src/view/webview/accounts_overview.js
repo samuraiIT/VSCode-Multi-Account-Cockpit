@@ -1586,7 +1586,12 @@
             } else if (action.type === 'url') {
                 vscode.postMessage({ command: 'openUrl', url: action.target });
             } else if (action.type === 'command') {
-                vscode.postMessage({ command: 'executeCommand', commandId: action.target, commandArgs: action.arguments || [] });
+                if (allowedAnnouncementCommands.has(action.target)) {
+                    vscode.postMessage({ command: 'executeCommand', commandId: action.target, commandArgs: action.arguments || [] });
+                } else {
+                    console.warn('Blocked unsupported announcement command action', action.target);
+                    showToast(getI18n('announcement.actionUnavailable', 'This announcement action is not available in this build.'), 'warning');
+                }
             }
         }
         closeAnnouncementPopup();
@@ -1874,3 +1879,7 @@
 
     init();
 })();
+    const allowedAnnouncementCommands = new Set([
+        'agCockpit.accountTree.refresh',
+        'agCockpit.openAccountsOverview',
+    ]);

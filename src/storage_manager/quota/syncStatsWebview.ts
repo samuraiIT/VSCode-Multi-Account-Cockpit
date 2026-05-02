@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import MarkdownIt from 'markdown-it';
 import { LocalizationManager } from '../l10n/localizationManager';
 import { SyncManifest } from '../googleDrive';
 import { getFileIconSvg } from './fileIcons';
@@ -63,11 +64,8 @@ export class SyncStatsWebview {
     private static initializeMd() {
         if (!SyncStatsWebview.md) {
             try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const markdownit = require('markdown-it');
-                const MD = (markdownit as any).default || markdownit;
-                SyncStatsWebview.md = new MD({
-                    html: true,
+                SyncStatsWebview.md = new MarkdownIt({
+                    html: false,
                     linkify: true,
                     breaks: true
                 });
@@ -366,8 +364,8 @@ export class SyncStatsWebview {
                 case 'lastSync': valA = new Date(a.lastSync).getTime(); valB = new Date(b.lastSync).getTime(); break;
                 default: valA = 0; valB = 0;
             }
-            if (valA < valB) return dSort.dir === 'asc' ? -1 : 1;
-            if (valA > valB) return dSort.dir === 'asc' ? 1 : -1;
+            if (valA < valB) {return dSort.dir === 'asc' ? -1 : 1;}
+            if (valA > valB) {return dSort.dir === 'asc' ? 1 : -1;}
             return 0;
         });
 
@@ -375,12 +373,12 @@ export class SyncStatsWebview {
         const machineGroups = new Map<string, any[]>();
         sortedMachines.forEach(m => {
             const name = m.name || lm.t('Unknown Device');
-            if (!machineGroups.has(name)) machineGroups.set(name, []);
+            if (!machineGroups.has(name)) {machineGroups.set(name, []);}
             machineGroups.get(name)!.push(m);
         });
 
         const formatBytes = (bytes: number) => {
-            if (bytes === 0) return '0 B';
+            if (bytes === 0) {return '0 B';}
             const k = 1024;
             const sizeUnits = [lm.t('B'), lm.t('KB'), lm.t('MB'), lm.t('GB'), lm.t('TB')];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -388,8 +386,8 @@ export class SyncStatsWebview {
         };
 
         const shortenTitle = (title: string, length: number = 100) => {
-            if (!title) return '';
-            if (title.length <= length) return title;
+            if (!title) {return '';}
+            if (title.length <= length) {return title;}
             return title.substring(0, length).trim() + '...';
         };
 
@@ -1095,14 +1093,14 @@ export class SyncStatsWebview {
                             const machinesWithQuota = group.filter(m => m.accountQuota && m.accountQuota.models && m.accountQuota.models.length > 0);
 
                             // If no machines have quota, return empty
-                            if (machinesWithQuota.length === 0) return '';
+                            if (machinesWithQuota.length === 0) {return '';}
 
                             // Sort: Current machine first, then by last sync (newest first)
                             machinesWithQuota.sort((a, b) => {
                                 const aMain = a.isCurrent && !a.isVirtualProfile;
                                 const bMain = b.isCurrent && !b.isVirtualProfile;
-                                if (aMain && !bMain) return -1;
-                                if (!aMain && bMain) return 1;
+                                if (aMain && !bMain) {return -1;}
+                                if (!aMain && bMain) {return 1;}
                                 return new Date(b.lastSync).getTime() - new Date(a.lastSync).getTime();
                             });
 
@@ -1146,7 +1144,7 @@ export class SyncStatsWebview {
                                 const miniParts: string[] = [];
                                 for (const def of miniGroupDefs) {
                                     const groupModels = models.filter((mdl: any) => !miniProcessed.has(mdl.modelId) && def.match(mdl.label));
-                                    if (groupModels.length === 0) continue;
+                                    if (groupModels.length === 0) {continue;}
                                     groupModels.forEach((mdl: any) => miniProcessed.add(mdl.modelId));
                                     const minPct = Math.min(...groupModels.map((mdl: any) => mdl.remainingPercentage ?? 0));
                                     const anyExhausted = groupModels.some((mdl: any) => mdl.isExhausted);
@@ -1165,7 +1163,7 @@ export class SyncStatsWebview {
                                 }
                                 // Add remaining ungrouped models
                                 for (const mdl of models) {
-                                    if (miniProcessed.has(mdl.modelId)) continue;
+                                    if (miniProcessed.has(mdl.modelId)) {continue;}
                                     miniProcessed.add(mdl.modelId);
                                     const pctVal = mdl.remainingPercentage ?? 0;
                                     const icon = getModelStatusIcon(mdl.remainingPercentage, mdl.isExhausted);
@@ -1228,13 +1226,13 @@ export class SyncStatsWebview {
                                         models.sort((a: any, b: any) => {
                                             const isPinnedA = pinned.includes(a.label);
                                             const isPinnedB = pinned.includes(b.label);
-                                            if (isPinnedA && !isPinnedB) return -1;
-                                            if (!isPinnedA && isPinnedB) return 1;
+                                            if (isPinnedA && !isPinnedB) {return -1;}
+                                            if (!isPinnedA && isPinnedB) {return 1;}
                                             return (a.remainingPercentage || 0) - (b.remainingPercentage || 0);
                                         });
 
                                         for (const model of models) {
-                                            if (processed.has(model.modelId)) continue;
+                                            if (processed.has(model.modelId)) {continue;}
                                             let groupFound = false;
                                             for (const def of definitions) {
                                                 if (def.match(model.label)) {
@@ -1264,8 +1262,8 @@ export class SyncStatsWebview {
                                             const pct = primary.remainingPercentage || 0;
 
                                             let color = 'var(--success)';
-                                            if (pct < 5) color = 'var(--error)';
-                                            else if (pct < 30) color = 'var(--warning)';
+                                            if (pct < 5) {color = 'var(--error)';}
+                                            else if (pct < 30) {color = 'var(--warning)';}
 
                                             const resetTimeStr = primary.resetTime ? formatResetTime(new Date(primary.resetTime)) : '';
 
@@ -1317,12 +1315,12 @@ export class SyncStatsWebview {
                                                             // For 0 usage, show minimal 2px bar; for > 0 use proportional height
                                                             const h = d.usage > 0 ? Math.max(8, (d.usage / 100) * 100) : 2;
                                                             let barColor = 'rgba(255,255,255,0.08)';
-                                                            if (d.usage > 80) barColor = 'var(--error)';
-                                                            else if (d.usage > 50) barColor = 'var(--warning)';
-                                                            else if (d.usage > 0) barColor = 'rgba(var(--accent-rgb), 0.6)';
+                                                            if (d.usage > 80) {barColor = 'var(--error)';}
+                                                            else if (d.usage > 50) {barColor = 'var(--warning)';}
+                                                            else if (d.usage > 0) {barColor = 'rgba(var(--accent-rgb), 0.6)';}
 
                                                             const isToday = new Date().toDateString() === new Date(d.date).toDateString();
-                                                            if (isToday && d.usage > 0) barColor = 'var(--fg)';
+                                                            if (isToday && d.usage > 0) {barColor = 'var(--fg)';}
 
                                                             const dateStr = new Date(d.date).toLocaleDateString(lm.getLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
                                                             const resetStr = primary.resetTime ? formatResetTime(new Date(primary.resetTime)) : '';
@@ -1433,7 +1431,7 @@ export class SyncStatsWebview {
                                     ${(() => {
                             // Filter out virtual profiles - they are shown in quota section
                             const realSessions = group.filter((m: any) => !m.isVirtualProfile);
-                            if (realSessions.length === 0) return '';
+                            if (realSessions.length === 0) {return '';}
 
                             // Group sessions by machine ID
                             const sessionGroups = new Map<string, any[]>();
@@ -1565,8 +1563,8 @@ export class SyncStatsWebview {
                     const title = remoteTitle || localTitle || remote?.title || local?.title || id;
 
                     let statusType = 0; // Synced
-                    if (!remote) statusType = 1; // Local Only
-                    else if (!local) statusType = 2; // Cloud Only
+                    if (!remote) {statusType = 1;} // Local Only
+                    else if (!local) {statusType = 2;} // Cloud Only
 
                     return { id, local, remote, title, statusType };
                 });
@@ -1597,16 +1595,16 @@ export class SyncStatsWebview {
                             break;
                         default: valA = 0; valB = 0;
                     }
-                    if (valA < valB) return cSort.dir === 'asc' ? -1 : 1;
-                    if (valA > valB) return cSort.dir === 'asc' ? 1 : -1;
+                    if (valA < valB) {return cSort.dir === 'asc' ? -1 : 1;}
+                    if (valA > valB) {return cSort.dir === 'asc' ? 1 : -1;}
                     return 0;
                 });
 
                 return convList.map(({ id, local, remote, title, statusType }) => {
                     let statusBadge = '';
-                    if (statusType === 0) statusBadge = `<span class="badge success">${lm.t('Synced')}</span>`;
-                    else if (statusType === 2) statusBadge = `<span class="badge warning">${lm.t('Cloud Only')}</span>`;
-                    else statusBadge = `<span class="badge accent">${lm.t('Local Only')}</span>`;
+                    if (statusType === 0) {statusBadge = `<span class="badge success">${lm.t('Synced')}</span>`;}
+                    else if (statusType === 2) {statusBadge = `<span class="badge warning">${lm.t('Cloud Only')}</span>`;}
+                    else {statusBadge = `<span class="badge accent">${lm.t('Local Only')}</span>`;}
 
                     const modDate = remote?.lastModified || local?.lastModified || '';
                     const createdInfo = remote && remote.createdByName ? `${lm.t('Created by {0} on {1}', remote.createdByName, lm.formatDateTime(remote.createdAt || ''))}` : '';
@@ -1658,7 +1656,7 @@ export class SyncStatsWebview {
                                                         <div style="display:flex; gap:6px; font-size: 11px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 4px;">
                                                             <span style="font-weight:bold; opacity:0.7; min-width:30px; font-size: 10px; align-self: flex-start; margin-top:2px;">${m.role === 'user' ? 'USER' : 'AI'}</span>
                                                             <div class="markdown-body" style="font-family: monospace; white-space: pre-wrap; word-break: break-all; opacity: 0.9;">
-                                                                ${SyncStatsWebview.md ? SyncStatsWebview.md.render(m.text) : m.text}
+                                                                ${SyncStatsWebview.renderMarkdown(m.text)}
                                                             </div>
                                                         </div>
                                                     `).join('')}

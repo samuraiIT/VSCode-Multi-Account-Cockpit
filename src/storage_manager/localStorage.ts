@@ -51,6 +51,45 @@ export class LocalStorageService implements StorageService {
         this.basePath = localPath;
     }
 
+    private ensureSafeName(value: string, label: string): string {
+        const trimmed = value.trim();
+        if (!trimmed || trimmed === '.' || trimmed === '..') {
+            throw new Error(`Invalid ${label}`);
+        }
+        if (trimmed.includes(path.posix.sep) || trimmed.includes(path.win32.sep)) {
+            throw new Error(`Unsafe ${label}`);
+        }
+        return trimmed;
+    }
+
+    private parseSafeRelativePath(relativePath: string): string[] {
+        const parts = relativePath
+            .split(/[\\/]+/)
+            .map(part => part.trim())
+            .filter(Boolean);
+
+        if (parts.length === 0) {
+            throw new Error('Invalid relative path');
+        }
+
+        for (const part of parts) {
+            if (part === '.' || part === '..') {
+                throw new Error('Unsafe relative path');
+            }
+        }
+
+        return parts;
+    }
+
+    private resolveWithin(baseDir: string, ...segments: string[]): string {
+        const resolvedBase = path.resolve(baseDir);
+        const resolvedPath = path.resolve(baseDir, ...segments);
+        if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${path.sep}`)) {
+            throw new Error('Resolved path escaped storage root');
+        }
+        return resolvedPath;
+    }
+
     async ensureSyncFolders(): Promise<{ syncFolderId: string; machinesFolderId: string; conversationsFolderId: string }> {
         if (this.syncFolderPath && this.machinesFolderPath && this.conversationsFolderPath) {
             return {
@@ -132,14 +171,16 @@ export class LocalStorageService implements StorageService {
 
     async uploadConversation(conversationId: string, encryptedData: Buffer): Promise<string> {
         await this.ensureSyncFolders();
-        const filePath = path.join(this.conversationsFolderPath!, `${conversationId}.zip.enc`);
+        const safeConversationId = this.ensureSafeName(conversationId, 'conversation id');
+        const filePath = this.resolveWithin(this.conversationsFolderPath!, `${safeConversationId}.zip.enc`);
         await fs.promises.writeFile(filePath, encryptedData);
         return filePath;
     }
 
     async downloadConversation(conversationId: string): Promise<Buffer | null> {
         await this.ensureSyncFolders();
-        const filePath = path.join(this.conversationsFolderPath!, `${conversationId}.zip.enc`);
+        const safeConversationId = this.ensureSafeName(conversationId, 'conversation id');
+        const filePath = this.resolveWithin(this.conversationsFolderPath!, `${safeConversationId}.zip.enc`);
         try {
             return await fs.promises.readFile(filePath);
         } catch {
@@ -149,7 +190,8 @@ export class LocalStorageService implements StorageService {
 
     async deleteConversation(conversationId: string): Promise<void> {
         await this.ensureSyncFolders();
-        const filePath = path.join(this.conversationsFolderPath!, `${conversationId}.zip.enc`);
+        const safeConversationId = this.ensureSafeName(conversationId, 'conversation id');
+        const filePath = this.resolveWithin(this.conversationsFolderPath!, `${safeConversationId}.zip.enc`);
         try {
             await fs.promises.unlink(filePath);
         } catch {
@@ -157,7 +199,7 @@ export class LocalStorageService implements StorageService {
         }
 
         // Also delete per-file folder if exists
-        const folderPath = path.join(this.conversationsFolderPath!, conversationId);
+        const folderPath = this.resolveWithin(this.conversationsFolderPath!, safeConversationId);
         try {
             await fs.promises.rm(folderPath, { recursive: true, force: true });
         } catch {
@@ -194,17 +236,18 @@ export class LocalStorageService implements StorageService {
         originalMd5?: string
     ): Promise<string> {
         await this.ensureSyncFolders();
-        const convFolder = path.join(this.conversationsFolderPath!, conversationId);
+        const safeConversationId = this.ensureSafeName(conversationId, 'conversation id');
+        const convFolder = this.resolveWithin(this.conversationsFolderPath!, safeConversationId);
 
         // Create subdirectories from relativePath
-        const parts = relativePath.split('/');
+        const parts = this.parseSafeRelativePath(relativePath);
         const fileName = parts[parts.length - 1] + '.enc';
-        const subDir = parts.slice(0, -1).join(path.sep);
-        const targetDir = subDir ? path.join(convFolder, subDir) : convFolder;
+        const subDirParts = parts.slice(0, -1);
+        const targetDir = subDirParts.length > 0 ? this.resolveWithin(convFolder, ...subDirParts) : convFolder;
 
         await fs.promises.mkdir(targetDir, { recursive: true });
 
-        const filePath = path.join(targetDir, fileName);
+        const filePath = this.resolveWithin(targetDir, fileName);
         await fs.promises.writeFile(filePath, encryptedData);
 
         // Store originalMd5 as a sidecar file if provided
@@ -221,12 +264,13 @@ export class LocalStorageService implements StorageService {
         relativePath: string
     ): Promise<Buffer | null> {
         await this.ensureSyncFolders();
-        const convFolder = path.join(this.conversationsFolderPath!, conversationId);
-        const parts = relativePath.split('/');
+        const safeConversationId = this.ensureSafeName(conversationId, 'conversation id');
+        const convFolder = this.resolveWithin(this.conversationsFolderPath!, safeConversationId);
+        const parts = this.parseSafeRelativePath(relativePath);
         const fileName = parts[parts.length - 1] + '.enc';
-        const subDir = parts.slice(0, -1).join(path.sep);
-        const targetDir = subDir ? path.join(convFolder, subDir) : convFolder;
-        const filePath = path.join(targetDir, fileName);
+        const subDirParts = parts.slice(0, -1);
+        const targetDir = subDirParts.length > 0 ? this.resolveWithin(convFolder, ...subDirParts) : convFolder;
+        const filePath = this.resolveWithin(targetDir, fileName);
 
         try {
             return await fs.promises.readFile(filePath);
@@ -240,12 +284,13 @@ export class LocalStorageService implements StorageService {
         relativePath: string
     ): Promise<void> {
         await this.ensureSyncFolders();
-        const convFolder = path.join(this.conversationsFolderPath!, conversationId);
-        const parts = relativePath.split('/');
+        const safeConversationId = this.ensureSafeName(conversationId, 'conversation id');
+        const convFolder = this.resolveWithin(this.conversationsFolderPath!, safeConversationId);
+        const parts = this.parseSafeRelativePath(relativePath);
         const fileName = parts[parts.length - 1] + '.enc';
-        const subDir = parts.slice(0, -1).join(path.sep);
-        const targetDir = subDir ? path.join(convFolder, subDir) : convFolder;
-        const filePath = path.join(targetDir, fileName);
+        const subDirParts = parts.slice(0, -1);
+        const targetDir = subDirParts.length > 0 ? this.resolveWithin(convFolder, ...subDirParts) : convFolder;
+        const filePath = this.resolveWithin(targetDir, fileName);
 
         try {
             await fs.promises.unlink(filePath);
@@ -258,7 +303,8 @@ export class LocalStorageService implements StorageService {
 
     async listConversationFilesDetails(conversationId: string): Promise<Map<string, { id: string; md5: string; originalMd5?: string }>> {
         await this.ensureSyncFolders();
-        const convFolder = path.join(this.conversationsFolderPath!, conversationId);
+        const safeConversationId = this.ensureSafeName(conversationId, 'conversation id');
+        const convFolder = this.resolveWithin(this.conversationsFolderPath!, safeConversationId);
 
         try {
             await fs.promises.access(convFolder);
@@ -279,7 +325,7 @@ export class LocalStorageService implements StorageService {
             const entries = await fs.promises.readdir(dirPath);
             for (const entry of entries) {
                 // Skip .meta sidecar files
-                if (entry.endsWith('.meta')) continue;
+                if (entry.endsWith('.meta')) {continue;}
 
                 const fullPath = path.join(dirPath, entry);
                 const entryPath = prefix ? `${prefix}/${entry}` : entry;
@@ -420,13 +466,17 @@ export class LocalStorageService implements StorageService {
     }
 
     async deleteFile(fileId: string): Promise<void> {
-        // fileId is the full path for local storage
         try {
-            const stats = await fs.promises.stat(fileId);
+            await this.ensureSyncFolders();
+            const safePath = this.resolveWithin(
+                this.syncFolderPath!,
+                path.relative(this.syncFolderPath!, path.resolve(fileId)),
+            );
+            const stats = await fs.promises.stat(safePath);
             if (stats.isDirectory()) {
-                await fs.promises.rm(fileId, { recursive: true, force: true });
+                await fs.promises.rm(safePath, { recursive: true, force: true });
             } else {
-                await fs.promises.unlink(fileId);
+                await fs.promises.unlink(safePath);
             }
         } catch {
             // Ignore if not exists

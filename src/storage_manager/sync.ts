@@ -2,10 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const markdownit = require('markdown-it');
-
+import MarkdownIt from 'markdown-it';
 
 import extract from 'extract-zip';
 import { GoogleAuthProvider } from './googleAuth';
@@ -128,19 +125,34 @@ export class SyncManager {
         }
 
         try {
-            const MD = (markdownit as any).default || markdownit;
-            if (typeof MD === 'function') {
-                this.md = new MD({
-                    html: true,
-                    linkify: true,
-                    breaks: true
-                });
-            } else if (MD && typeof MD.render === 'function') {
-                this.md = MD;
-            }
+            this.md = new MarkdownIt({
+                html: false,
+                linkify: true,
+                breaks: true
+            });
         } catch (e) {
             console.error('Failed to initialize MarkdownIt:', e);
         }
+    }
+
+    private ensureSafeConversationId(value: string): string {
+        const trimmed = value.trim();
+        if (!trimmed || trimmed === '.' || trimmed === '..') {
+            throw new Error('Invalid conversation id');
+        }
+        if (trimmed.includes(path.posix.sep) || trimmed.includes(path.win32.sep)) {
+            throw new Error('Unsafe conversation id');
+        }
+        return trimmed;
+    }
+
+    private resolveWithinBase(baseDir: string, ...segments: string[]): string {
+        const resolvedBase = path.resolve(baseDir);
+        const resolvedPath = path.resolve(baseDir, ...segments);
+        if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${path.sep}`)) {
+            throw new Error('Resolved path escaped storage root');
+        }
+        return resolvedPath;
     }
 
     public setQuotaManager(quotaManager: QuotaManager) {
@@ -374,16 +386,16 @@ export class SyncManager {
                 this.reportProgress(progress, lm.t('Starting synchronization...'));
                 const chunkSize = 5;
                 for (let i = 0; i < toSync.length; i += chunkSize) {
-                    if (token?.isCancellationRequested) throw new vscode.CancellationError();
+                    if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
                     const chunk = toSync.slice(i, i + chunkSize);
                     await Promise.all(chunk.map(convId => {
-                        if (token?.isCancellationRequested) return Promise.reject(new vscode.CancellationError());
+                        if (token?.isCancellationRequested) {return Promise.reject(new vscode.CancellationError());}
                         return this.processSyncItem(convId, localConversations, remoteManifest, lastSyncedConversations, result, progress, token, force);
                     }));
                 }
 
                 // Update last sync time
-                if (token?.isCancellationRequested) throw new vscode.CancellationError();
+                if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
                 this.config!.lastSync = new Date().toISOString();
                 this.syncCount++;
                 await this.saveConfig();
@@ -466,7 +478,7 @@ export class SyncManager {
             }
         }
 
-        if (ids.length === 0) return;
+        if (ids.length === 0) {return;}
 
         try {
             await vscode.window.withProgress({
@@ -475,7 +487,7 @@ export class SyncManager {
                 cancellable: false
             }, async () => {
                 const manifest = await this.getDecryptedManifest();
-                if (!manifest) return;
+                if (!manifest) {return;}
 
                 const initialCount = manifest.conversations.length;
                 manifest.conversations = manifest.conversations.filter(c => !ids.includes(c.id));
@@ -503,7 +515,7 @@ export class SyncManager {
      */
     async pushConversation(conversationId: string, progress?: vscode.Progress<{ message?: string; increment?: number }>, token?: vscode.CancellationToken): Promise<void> {
         const lm = LocalizationManager.getInstance();
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
         if (!this.masterPassword) {
             throw new Error(lm.t('Encryption password not set'));
         }
@@ -524,7 +536,7 @@ export class SyncManager {
             const remoteConv = manifest?.conversations.find(c => c.id === conversationId);
             const remoteHashes = remoteConv?.fileHashes || {};
 
-            if (token?.isCancellationRequested) throw new vscode.CancellationError();
+            if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
 
             // Determine which files need to be uploaded
             const filesToUpload: string[] = [];
@@ -594,7 +606,7 @@ export class SyncManager {
             const concurrency = config.get<number>('sync.concurrency', 3);
 
             await limitConcurrency(filesToUpload, concurrency, async (relativePath) => {
-                if (token?.isCancellationRequested) throw new vscode.CancellationError();
+                if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
 
                 uploadedCount++;
                 this.uploadCount++;
@@ -620,7 +632,7 @@ export class SyncManager {
 
             // Delete removed files from remote
             for (const relativePath of filesToDelete) {
-                if (token?.isCancellationRequested) throw new vscode.CancellationError();
+                if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
                 await this.driveService.deleteConversationFile(conversationId, relativePath);
             }
 
@@ -666,7 +678,7 @@ export class SyncManager {
                         if (stats.isDirectory()) {
                             console.log(`[Reindex] Found potential orphan: ${id}`);
                             const files = await fs.promises.readdir(dirPath);
-                            if (files.length > 0) recovered++;
+                            if (files.length > 0) {recovered++;}
                         }
                     }
                 }
@@ -817,14 +829,16 @@ export class SyncManager {
      * Get full local path for a relative path
      */
     private getFullPathForRelative(conversationId: string, relativePath: string): string {
+        const safeConversationId = this.ensureSafeConversationId(conversationId);
         if (relativePath.startsWith('conversations/')) {
-            return path.join(CONV_DIR, relativePath.replace('conversations/', ''));
-        } else if (relativePath.startsWith(`brain/${conversationId}/`)) {
+            const localRelative = relativePath.replace('conversations/', '');
+            return this.resolveWithinBase(CONV_DIR, localRelative);
+        } else if (relativePath.startsWith(`brain/${safeConversationId}/`)) {
             // brain/{convId}/subpath -> BRAIN_DIR/{convId}/subpath
-            return path.join(BRAIN_DIR, relativePath.replace('brain/', ''));
+            return this.resolveWithinBase(BRAIN_DIR, relativePath.replace('brain/', ''));
         } else if (relativePath.startsWith('brain/')) {
             // brain/{convId}/subpath (generic case)
-            return path.join(BRAIN_DIR, relativePath.replace('brain/', ''));
+            return this.resolveWithinBase(BRAIN_DIR, relativePath.replace('brain/', ''));
         }
         throw new Error(`Unknown path format: ${relativePath}`);
     }
@@ -837,7 +851,7 @@ export class SyncManager {
      */
     async pullConversation(conversationId: string, progress?: vscode.Progress<{ message?: string; increment?: number }>, token?: vscode.CancellationToken): Promise<void> {
         const lm = LocalizationManager.getInstance();
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
         if (!this.masterPassword) {
             throw new Error(lm.t('Encryption password not set'));
         }
@@ -884,7 +898,7 @@ export class SyncManager {
         token?: vscode.CancellationToken
     ): Promise<void> {
         const lm = LocalizationManager.getInstance();
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
         // Get local file hashes
         this.reportProgress(progress, lm.t('Analyzing "{0}"...', convTitle));
         const localData = await this.computeConversationFileHashesAsync(conversationId);
@@ -932,7 +946,7 @@ export class SyncManager {
             filesToDelete.length = 0;
         }
 
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
 
         // Create pre-sync backup before overwriting any local files
         if (filesToDownload.length > 0 || filesToDelete.length > 0) {
@@ -944,7 +958,7 @@ export class SyncManager {
         const concurrency = config.get<number>('sync.concurrency', 3);
 
         await limitConcurrency(filesToDownload, concurrency, async (relativePath) => {
-            if (token?.isCancellationRequested) throw new vscode.CancellationError();
+            if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
             downloadedCount++;
             this.downloadCount++;
             this.reportProgress(progress, lm.t('Downloading "{0}": {1} ({2}/{3})...', convTitle, relativePath, downloadedCount, filesToDownload.length));
@@ -967,7 +981,7 @@ export class SyncManager {
 
         // Delete locally files that were deleted remotely
         for (const relativePath of filesToDelete) {
-            if (token?.isCancellationRequested) throw new vscode.CancellationError();
+            if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
             try {
                 const fullPath = this.getFullPathForRelative(conversationId, relativePath);
                 await fs.promises.unlink(fullPath);
@@ -987,14 +1001,14 @@ export class SyncManager {
         token?: vscode.CancellationToken
     ): Promise<void> {
         const lm = LocalizationManager.getInstance();
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
 
         // Download encrypted ZIP
         this.reportProgress(progress, lm.t('Downloading "{0}"...', convTitle));
         this.downloadCount++;
         const encrypted = await this.driveService.downloadConversation(conversationId);
 
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
 
         if (!encrypted) {
             throw new Error(lm.t('Conversation {0} not found in Drive', conversationId));
@@ -1004,14 +1018,14 @@ export class SyncManager {
         this.reportProgress(progress, lm.t('Decrypting "{0}"...', convTitle));
         const zipData = crypto.decrypt(encrypted, this.masterPassword!);
 
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
 
         // Extract to temp
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ag-sync-'));
         const zipPath = path.join(tempDir, `${conversationId}.zip`);
 
         try {
-            if (token?.isCancellationRequested) throw new vscode.CancellationError();
+            if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
             fs.writeFileSync(zipPath, zipData);
             await extract(zipPath, { dir: tempDir });
 
@@ -1134,7 +1148,7 @@ export class SyncManager {
     ): Promise<string | null> {
         const config = vscode.workspace.getConfiguration(EXT_NAME);
         const enabled = config.get<boolean>('sync.preSyncBackup', true);
-        if (!enabled) return null;
+        if (!enabled) {return null;}
 
         const lm = LocalizationManager.getInstance();
         this.reportProgress(progress, lm.t('Creating backup before sync for "{0}"...', convTitle));
@@ -1197,14 +1211,14 @@ export class SyncManager {
      * Clean old pre-sync backups for a specific conversation, keeping only the most recent ones.
      */
     private async cleanOldSyncBackups(conversationId: string, retention: number, backupBaseDir: string): Promise<void> {
-        if (retention <= 0) return;
+        if (retention <= 0) {return;}
 
         try {
             const convBackupDir = path.join(backupBaseDir, conversationId);
-            if (!fs.existsSync(convBackupDir)) return;
+            if (!fs.existsSync(convBackupDir)) {return;}
 
             const entries = await fs.promises.readdir(convBackupDir);
-            if (entries.length <= retention) return;
+            if (entries.length <= retention) {return;}
 
             // Sort by name (which is ISO timestamp) descending (newest first)
             const sorted = entries.sort((a, b) => b.localeCompare(a));
@@ -1242,7 +1256,7 @@ export class SyncManager {
 
         const lm = LocalizationManager.getInstance();
         try {
-            if (!this.authProvider.isAuthenticated() || !this.driveService) return null;
+            if (!this.authProvider.isAuthenticated() || !this.driveService) {return null;}
             const encrypted = await this.driveService.getManifest();
 
             if (!encrypted) {
@@ -1458,7 +1472,7 @@ export class SyncManager {
                 }
 
                 // Update machine info in manifest
-                if (!manifest.machines) manifest.machines = [];
+                if (!manifest.machines) {manifest.machines = [];}
                 const machineIdx = manifest.machines.findIndex(m => m.id === this.config!.machineId);
                 const existingMachine = machineIdx >= 0 ? manifest.machines[machineIdx] : null;
                 const machineInfo: Machine = {
@@ -1538,7 +1552,7 @@ export class SyncManager {
                 }
 
                 // Update machine info in manifest
-                if (!manifest.machines) manifest.machines = [];
+                if (!manifest.machines) {manifest.machines = [];}
                 const machineIdx = manifest.machines.findIndex(m => m.id === this.config!.machineId);
                 const existingMachine = machineIdx >= 0 ? manifest.machines[machineIdx] : null;
                 const machineInfo: Machine = {
@@ -1576,7 +1590,7 @@ export class SyncManager {
      * Update machine state in Drive
      */
     private async updateMachineState(): Promise<void> {
-        if (!this.config) return;
+        if (!this.config) {return;}
 
         const configName = vscode.workspace.getConfiguration(EXT_NAME).get<string>('sync.machineName');
         const machineName = (configName || this.config.machineName || os.hostname()).trim();
@@ -1616,10 +1630,10 @@ export class SyncManager {
      * Get this machine's previous state from Drive
      */
     private async getMyMachineState(): Promise<MachineState | null> {
-        if (!this.config?.machineId) return null;
+        if (!this.config?.machineId) {return null;}
         try {
             const encrypted = await this.driveService.getMachineState(this.config.machineId);
-            if (!encrypted) return null;
+            if (!encrypted) {return null;}
 
             const decrypted = crypto.decrypt(encrypted, this.masterPassword!);
             return JSON.parse(decrypted.toString()) as MachineState;
@@ -1633,7 +1647,7 @@ export class SyncManager {
      * Update status bar item
      */
     private updateStatusBar(status: 'idle' | 'syncing' | 'error' | 'ok', text?: string) {
-        if (!this.statusBarItem) return;
+        if (!this.statusBarItem) {return;}
 
         if (this.config && !this.config.showStatusBar) {
             this.statusBarItem.hide();
@@ -1663,7 +1677,7 @@ export class SyncManager {
                 this.updateStatusBar('idle');
                 // Revert to idle after 5 seconds
                 setTimeout(() => {
-                    if (!this.isSyncing) this.updateStatusBar('idle');
+                    if (!this.isSyncing) {this.updateStatusBar('idle');}
                 }, 5000);
                 break;
             case 'idle':
@@ -1787,7 +1801,7 @@ export class SyncManager {
      */
     private async getAllFilesAsync(dirPath: string): Promise<string[]> {
         let files: string[] = [];
-        if (!fs.existsSync(dirPath)) return files;
+        if (!fs.existsSync(dirPath)) {return files;}
 
         const EXCLUDE_LIST = ['.ds_store', 'thumbs.db', '.git', '.temp', '.bak'];
 
@@ -1843,7 +1857,7 @@ export class SyncManager {
             const hash = options?.skipHashes ? '' : await this.getFileHashWithCacheAsync(pbPath);
             if (options?.skipHashes || hash) {
                 const relativePath = `conversations/${conversationId}.pb`;
-                if (!options?.skipHashes) parts.push(`${relativePath}:${hash}`);
+                if (!options?.skipHashes) {parts.push(`${relativePath}:${hash}`);}
                 const stats = await fs.promises.stat(pbPath);
                 maxMtime = Math.max(maxMtime, stats.mtimeMs);
                 fileHashes[relativePath] = {
@@ -1870,7 +1884,7 @@ export class SyncManager {
             for (const file of relativeFiles) {
                 const hash = options?.skipHashes ? '' : await this.getFileHashWithCacheAsync(file.fullPath);
                 if (options?.skipHashes || hash) {
-                    if (!options?.skipHashes) parts.push(`${file.path}:${hash}`);
+                    if (!options?.skipHashes) {parts.push(`${file.path}:${hash}`);}
                     const stats = await fs.promises.stat(file.fullPath);
                     maxMtime = Math.max(maxMtime, stats.mtimeMs);
                     fileHashes[file.path] = {
@@ -1903,7 +1917,7 @@ export class SyncManager {
         const worker = async () => {
             while (queue.length > 0) {
                 const item = queue.shift();
-                if (!item) break;
+                if (!item) {break;}
 
                 let overallHash = '';
                 let fileHashes: { [relativePath: string]: FileHashInfo } = {};
@@ -1964,8 +1978,8 @@ export class SyncManager {
                             });
                         } else if (!silent) {
                             const message = [];
-                            if (result.pushed.length) message.push(lm.t('{0} pushed', result.pushed.length));
-                            if (result.pulled.length) message.push(lm.t('{0} pulled', result.pulled.length));
+                            if (result.pushed.length) {message.push(lm.t('{0} pushed', result.pushed.length));}
+                            if (result.pulled.length) {message.push(lm.t('{0} pulled', result.pulled.length));}
 
                             vscode.window.showInformationMessage(lm.t('Sync complete: {0}', message.join(', ')));
                         }
@@ -2010,7 +2024,7 @@ export class SyncManager {
                 lm.t("Cancel")
             );
 
-            if (answer !== lm.t("Sign In")) return;
+            if (answer !== lm.t("Sign In")) {return;}
 
             try {
                 await this.authProvider.signIn();
@@ -2029,7 +2043,7 @@ export class SyncManager {
                 value && value.length >= 8 ? null : lm.t("Password must be at least 8 characters")
         });
 
-        if (!password) return;
+        if (!password) {return;}
 
         // 3. Confirm Password
         const confirm = await vscode.window.showInputBox({
@@ -2040,7 +2054,7 @@ export class SyncManager {
                 value === password ? null : lm.t("Passwords do not match")
         });
 
-        if (!confirm) return;
+        if (!confirm) {return;}
 
         // Save password securely
         await this.context.secrets.store(SECRET_KEY, password);
@@ -2057,7 +2071,7 @@ export class SyncManager {
                 title: lm.t("Setting up sync storage..."),
                 cancellable: true
             }, async (progress, token) => {
-                if (token.isCancellationRequested) throw new vscode.CancellationError();
+                if (token.isCancellationRequested) {throw new vscode.CancellationError();}
 
                 // Match existing logic but inject session selection
                 this.reportProgress(progress, lm.t('Checking Google Drive folders...'));
@@ -2074,15 +2088,16 @@ export class SyncManager {
                 if (manifest && manifest.machines && manifest.machines.length > 0) {
                     let sortMethod: 'date' | 'duration' | 'name' = 'date';
                     let selection: any;
+                    let selectingMachine = true;
 
-                    while (true) {
+                    while (selectingMachine) {
                         // Sort machines based on selected method
                         const sortedMachines = [...manifest.machines].sort((a, b) => {
                             if (sortMethod === 'name') {
                                 const nameA = a.name || a.id || '';
                                 const nameB = b.name || b.id || '';
                                 const nameComp = nameA.localeCompare(nameB);
-                                if (nameComp !== 0) return nameComp;
+                                if (nameComp !== 0) {return nameComp;}
                                 return (a.id || '').localeCompare(b.id || '');
                             } else if (sortMethod === 'date') {
                                 const dateA = a.lastSync ? new Date(a.lastSync).getTime() : 0;
@@ -2091,7 +2106,7 @@ export class SyncManager {
                             } else {
                                 const durA = (a.lastSync && a.createdAt) ? new Date(a.lastSync).getTime() - new Date(a.createdAt).getTime() : 0;
                                 const durB = (b.lastSync && b.createdAt) ? new Date(b.lastSync).getTime() - new Date(b.createdAt).getTime() : 0;
-                                if (durB !== durA) return durB - durA;
+                                if (durB !== durA) {return durB - durA;}
                                 return new Date(b.lastSync || 0).getTime() - new Date(a.lastSync || 0).getTime();
                             }
                         });
@@ -2103,8 +2118,8 @@ export class SyncManager {
 
                         const updateSortButton = () => {
                             let sortTooltip = lm.t('Sort by Date and Time');
-                            if (sortMethod === 'duration') sortTooltip = lm.t('Sort by Duration');
-                            if (sortMethod === 'name') sortTooltip = lm.t('Sort by Name');
+                            if (sortMethod === 'duration') {sortTooltip = lm.t('Sort by Duration');}
+                            if (sortMethod === 'name') {sortTooltip = lm.t('Sort by Name');}
 
                             quickPick.buttons = [{
                                 iconPath: new vscode.ThemeIcon('list-ordered'),
@@ -2161,9 +2176,9 @@ export class SyncManager {
                         updateItems();
 
                         quickPick.onDidTriggerButton(_button => {
-                            if (sortMethod === 'date') sortMethod = 'duration';
-                            else if (sortMethod === 'duration') sortMethod = 'name';
-                            else sortMethod = 'date';
+                            if (sortMethod === 'date') {sortMethod = 'duration';}
+                            else if (sortMethod === 'duration') {sortMethod = 'name';}
+                            else {sortMethod = 'date';}
 
                             // Re-sort sortedMachines
                             sortedMachines.sort((a, b) => {
@@ -2171,7 +2186,7 @@ export class SyncManager {
                                     const nameA = a.name || a.id || '';
                                     const nameB = b.name || b.id || '';
                                     const nameComp = nameA.localeCompare(nameB);
-                                    if (nameComp !== 0) return nameComp;
+                                    if (nameComp !== 0) {return nameComp;}
                                     // Tie-breaker: ID
                                     return (a.id || '').localeCompare(b.id || '');
                                 } else if (sortMethod === 'date') {
@@ -2179,7 +2194,7 @@ export class SyncManager {
                                 } else {
                                     const durA = (a.lastSync && a.createdAt) ? new Date(a.lastSync).getTime() - new Date(a.createdAt).getTime() : 0;
                                     const durB = (b.lastSync && b.createdAt) ? new Date(b.lastSync).getTime() - new Date(b.createdAt).getTime() : 0;
-                                    if (durB !== durA) return durB - durA; // Longest duration first
+                                    if (durB !== durA) {return durB - durA;} // Longest duration first
                                     // Tie-breaker: Date
                                     return new Date(b.lastSync || 0).getTime() - new Date(a.lastSync || 0).getTime();
                                 }
@@ -2208,11 +2223,15 @@ export class SyncManager {
                             quickPick.show();
                         });
 
-                        if (!selection) break;
-                        break; // Normal selection (new or resume)
+                        if (!selection) {
+                            selectingMachine = false;
+                            break;
+                        }
+
+                        selectingMachine = false; // Normal selection (new or resume)
                     }
 
-                    if (!selection) return; // User cancelled
+                    if (!selection) {return;} // User cancelled
 
                     if (selection && selection.id !== 'new') {
                         machineId = selection.id; // Reuse ID
@@ -2228,7 +2247,7 @@ export class SyncManager {
                             value: machineName,
                             validateInput: (value) => value ? null : lm.t("Machine name cannot be empty")
                         });
-                        if (newName) machineName = newName;
+                        if (newName) {machineName = newName;}
 
                     } else {
                         // NEW SESSION logic
@@ -2237,7 +2256,7 @@ export class SyncManager {
                             value: machineName,
                             validateInput: (value) => value ? null : lm.t("Machine name cannot be empty")
                         });
-                        if (inputName) machineName = inputName;
+                        if (inputName) {machineName = inputName;}
                     }
                 } else {
                     // No manifest or no machines -> Default New Session flow
@@ -2246,7 +2265,7 @@ export class SyncManager {
                         value: machineName,
                         validateInput: (value) => value ? null : lm.t("Machine name cannot be empty")
                     });
-                    if (inputName) machineName = inputName;
+                    if (inputName) {machineName = inputName;}
                 }
 
                 // Initialize config with determined ID and Name
@@ -2282,8 +2301,8 @@ export class SyncManager {
 
                         const updateSortButton = () => {
                             let sortTooltip = lm.t('Sort by Modified Date and Time');
-                            if (sortMethod === 'created') sortTooltip = lm.t('Sort by Created Date and Time');
-                            if (sortMethod === 'name') sortTooltip = lm.t('Sort by Name');
+                            if (sortMethod === 'created') {sortTooltip = lm.t('Sort by Created Date and Time');}
+                            if (sortMethod === 'name') {sortTooltip = lm.t('Sort by Name');}
 
                             quickPick.buttons = [
                                 { iconPath: new vscode.ThemeIcon('heart'), tooltip: lm.t('Support on Patreon') },
@@ -2348,9 +2367,9 @@ export class SyncManager {
                                 vscode.env.openExternal(vscode.Uri.parse('https://www.buymeacoffee.com/nikolaychebotov'));
                             } else {
                                 // Sort button
-                                if (sortMethod === 'modified') sortMethod = 'created';
-                                else if (sortMethod === 'created') sortMethod = 'name';
-                                else sortMethod = 'modified';
+                                if (sortMethod === 'modified') {sortMethod = 'created';}
+                                else if (sortMethod === 'created') {sortMethod = 'name';}
+                                else {sortMethod = 'modified';}
                                 updateItems(true);
                             }
                         });
@@ -2389,7 +2408,7 @@ export class SyncManager {
 
         } catch (error: any) {
             console.error('Setup failed details:', error);
-            if (error.stack) console.error(error.stack);
+            if (error.stack) {console.error(error.stack);}
             vscode.window.showErrorMessage(lm.t("Setup failed: {0}", error.message));
         }
     }
@@ -2478,7 +2497,7 @@ export class SyncManager {
         token?: vscode.CancellationToken,
         force: boolean = false
     ): Promise<void> {
-        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
 
         const lm = LocalizationManager.getInstance();
         const local = localConversations.find(c => c.id === convId);
@@ -2515,7 +2534,7 @@ export class SyncManager {
                 await this.pushConversation(convId, progress, token);
                 result.pushed.push(convId);
             } catch (error: any) {
-                if (error instanceof vscode.CancellationError) throw error;
+                if (error instanceof vscode.CancellationError) {throw error;}
                 result.errors.push(`Failed to push ${convId}: ${error.message}`);
             }
         } else if (!local && remote) {
@@ -2525,7 +2544,7 @@ export class SyncManager {
                 await this.pullConversation(convId, progress, token);
                 result.pulled.push(convId);
             } catch (error: any) {
-                if (error instanceof vscode.CancellationError) throw error;
+                if (error instanceof vscode.CancellationError) {throw error;}
                 result.errors.push(`Failed to pull ${convId}: ${error.message}`);
             }
         } else if (local && remote) {
@@ -2567,7 +2586,7 @@ export class SyncManager {
                     await this.pushConversation(convId, progress, token);
                     result.pushed.push(convId);
                 } catch (error: any) {
-                    if (error instanceof vscode.CancellationError) throw error;
+                    if (error instanceof vscode.CancellationError) {throw error;}
                     result.errors.push(`Failed to push ${convId}: ${error.message}`);
                 }
             } else if (removeChanged && !localChanged) {
@@ -2596,7 +2615,7 @@ export class SyncManager {
                         await this.pullConversation(convId, progress, token);
                         result.pulled.push(convId);
                     } catch (error: any) {
-                        if (error instanceof vscode.CancellationError) throw error;
+                        if (error instanceof vscode.CancellationError) {throw error;}
                         result.errors.push(`Failed to pull ${convId}: ${error.message}`);
                     }
                 }
@@ -2657,7 +2676,7 @@ export class SyncManager {
 
                 // Try to find the latest that matches the current workspace
                 let target = sorted.find(t => {
-                    if (!t.workspaces || !Array.isArray(t.workspaces)) return false;
+                    if (!t.workspaces || !Array.isArray(t.workspaces)) {return false;}
                     return t.workspaces.some((ws: any) => {
                         const wsName = (ws.name || ws.repository?.computedName || '').toLowerCase();
                         return wsName && workspaceNames.has(wsName);
@@ -2665,7 +2684,7 @@ export class SyncManager {
                 });
 
                 // Fallback to absolute latest if no workspace match
-                if (!target) target = sorted[0];
+                if (!target) {target = sorted[0];}
 
                 const title = target.progressTitle || target.summary || target.name || target.title;
                 return {
@@ -2761,28 +2780,28 @@ export class SyncManager {
             const fsPath = activeEditor.document.uri.fsPath;
             // Matches brain/<id>/task.md or brain/<id>/...
             const brainMatch = fsPath.match(/[\\/]brain[\\/]([a-f0-9-]{36})[\\/]/i);
-            if (brainMatch) return brainMatch[1];
+            if (brainMatch) {return brainMatch[1];}
 
             // Matches .pb trajectories
             const pbMatch = fsPath.match(/([a-f0-9-]{36})\.(?:pb|trajectory)$/i);
-            if (pbMatch) return pbMatch[1];
+            if (pbMatch) {return pbMatch[1];}
         }
 
         // Priority 2: Check visible text editors (useful if the dashboard is the active tab)
         for (const editor of vscode.window.visibleTextEditors) {
             const fsPath = editor.document.uri.fsPath;
             const brainMatch = fsPath.match(/[\\/]brain[\\/]([a-f0-9-]{36})[\\/]/i);
-            if (brainMatch) return brainMatch[1];
+            if (brainMatch) {return brainMatch[1];}
 
             const pbMatch = fsPath.match(/([a-f0-9-]{36})\.(?:pb|trajectory)$/i);
-            if (pbMatch) return pbMatch[1];
+            if (pbMatch) {return pbMatch[1];}
         }
 
         // Priority 3: Server Reported Active (Real-time Webview)
-        if (serverActiveId) return serverActiveId;
+        if (serverActiveId) {return serverActiveId;}
 
         // Priority 4: Last opened/viewed via Antigravity UI
-        if (this.lastActiveConversationId) return this.lastActiveConversationId;
+        if (this.lastActiveConversationId) {return this.lastActiveConversationId;}
 
         // Priority 5: Default to last modified (existing behavior, but moved here as final fallback)
         if (this.lastStatsData?.localConversations?.length > 0) {
@@ -2839,8 +2858,8 @@ export class SyncManager {
 
         const updateSortButton = () => {
             let sortTooltip = lm.t('Sort by Modified Date and Time');
-            if (currentSort === 'created') sortTooltip = lm.t('Sort by Created Date and Time');
-            if (currentSort === 'name') sortTooltip = lm.t('Sort by Name');
+            if (currentSort === 'created') {sortTooltip = lm.t('Sort by Created Date and Time');}
+            if (currentSort === 'name') {sortTooltip = lm.t('Sort by Name');}
 
             quickPick.buttons = [
                 { iconPath: new vscode.ThemeIcon('heart'), tooltip: lm.t('Support on Patreon') },
@@ -2876,9 +2895,9 @@ export class SyncManager {
                 vscode.env.openExternal(vscode.Uri.parse('https://github.com/unchase/antigravity-storage-manager'));
             } else {
                 // Sort button
-                if (currentSort === 'modified') currentSort = 'created';
-                else if (currentSort === 'created') currentSort = 'name';
-                else currentSort = 'modified';
+                if (currentSort === 'modified') {currentSort = 'created';}
+                else if (currentSort === 'created') {currentSort = 'name';}
+                else {currentSort = 'modified';}
 
                 const previousSelectionIds = quickPick.selectedItems.map(i => i.id);
                 quickPick.items = prepareItems(conversations, currentSort);
@@ -2990,7 +3009,7 @@ export class SyncManager {
 
         // 2. Delete remotely if exists (update manifest)
         const manifest = await this.getDecryptedManifest();
-        if (!manifest) return;
+        if (!manifest) {return;}
 
         const remoteConv = manifest.conversations.find(c => c.id === conversationId);
         if (remoteConv && remoteConv.fileHashes && remoteConv.fileHashes[relativePath]) {
@@ -3331,7 +3350,7 @@ export class SyncManager {
                 const machineWorker = async () => {
                     while (machineQueue.length > 0) {
                         const factory = machineQueue.shift();
-                        if (!factory) break;
+                        if (!factory) {break;}
                         machineResults.push(await factory());
                     }
                 };
@@ -3661,7 +3680,7 @@ export class SyncManager {
                             }
                         }
                     } else if (!finalText && !pbText) {
-                        finalText = '<i>No content available.</i>';
+                        finalText = 'No content available.';
                     }
 
                     // Render to Markdown HTML
@@ -3678,7 +3697,7 @@ export class SyncManager {
                     SyncStatsWebview.postMessage({
                         command: 'conversationDetails',
                         id: id,
-                        html: '<i>Failed to load content.</i>'
+                        html: SyncStatsWebview.renderMarkdown('Failed to load content.')
                     });
                 }
                 break;
@@ -3709,15 +3728,15 @@ export class SyncManager {
                     }
                 }
 
-                if (opened) break;
+                if (opened) {break;}
 
-                const id = message.id;
-                const pbPath = path.join(STORAGE_ROOT, 'conversations', `${id}.pb`);
+                const id = this.ensureSafeConversationId(message.id);
+                const pbPath = this.resolveWithinBase(path.join(STORAGE_ROOT, 'conversations'), `${id}.pb`);
                 if (fs.existsSync(pbPath)) {
                     const title = message.title || this.getConversationTitle(id) || id;
                     await this.openPbChat(id, title);
                 } else {
-                    const convPath = path.join(BRAIN_DIR, id);
+                    const convPath = this.resolveWithinBase(BRAIN_DIR, id);
                     if (fs.existsSync(convPath)) {
                         const taskMd = path.join(convPath, 'task.md');
                         if (fs.existsSync(taskMd)) {
@@ -3798,7 +3817,7 @@ export class SyncManager {
                         vscode.window.showInformationMessage(lm.t('Conversation uploaded.'));
                         this.refreshStatistics();
                     } catch (e: any) {
-                        if (e instanceof vscode.CancellationError) return;
+                        if (e instanceof vscode.CancellationError) {return;}
                         vscode.window.showErrorMessage(lm.t('Upload failed: {0}', e.message));
                     }
                 });
@@ -3814,7 +3833,7 @@ export class SyncManager {
                         vscode.window.showInformationMessage(lm.t('Conversation downloaded.'));
                         this.refreshStatistics();
                     } catch (e: any) {
-                        if (e instanceof vscode.CancellationError) return;
+                        if (e instanceof vscode.CancellationError) {return;}
                         vscode.window.showErrorMessage(lm.t('Download failed: {0}', e.message));
                     }
                 });
@@ -3934,7 +3953,7 @@ export class SyncManager {
             lm.t('Delete')
         );
 
-        if (confirm !== lm.t('Delete')) return;
+        if (confirm !== lm.t('Delete')) {return;}
 
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -3942,12 +3961,12 @@ export class SyncManager {
             cancellable: false
         }, async (_progress) => {
             try {
-                if (!this.driveService) throw new Error('Drive service not initialized');
+                if (!this.driveService) {throw new Error('Drive service not initialized');}
 
                 const encryptedManifest = await this.driveService.getManifest();
-                if (!encryptedManifest) throw new Error('Failed to load manifest');
+                if (!encryptedManifest) {throw new Error('Failed to load manifest');}
 
-                if (!this.masterPassword) throw new Error('Master password not loaded');
+                if (!this.masterPassword) {throw new Error('Master password not loaded');}
                 const manifest = JSON.parse(crypto.decrypt(encryptedManifest, this.masterPassword).toString()) as SyncManifest;
 
                 const toDelete = manifest.conversations.filter(c => c.createdBy === machineId);
@@ -4075,8 +4094,8 @@ export class SyncManager {
 
             const updateSortButton = () => {
                 let sortTooltip = lm.t('Status');
-                if (sortMethod === 'sync') sortTooltip = lm.t('Last Sync');
-                if (sortMethod === 'name') sortTooltip = lm.t('Name');
+                if (sortMethod === 'sync') {sortTooltip = lm.t('Last Sync');}
+                if (sortMethod === 'name') {sortTooltip = lm.t('Name');}
 
                 quickPick.buttons = [
                     { iconPath: new vscode.ThemeIcon('heart'), tooltip: lm.t('Support on Patreon') },
@@ -4094,7 +4113,7 @@ export class SyncManager {
                 const sorted = machinesList.sort(([, a], [, b]) => {
                     // Helper to get status priority (Online = 1, Offline = 0)
                     const getStatus = (info: { lastSync?: string }) => {
-                        if (!info.lastSync) return 0;
+                        if (!info.lastSync) {return 0;}
                         const diff = now - new Date(info.lastSync).getTime();
                         return diff < 10 * 60 * 1000 ? 1 : 0;
                     };
@@ -4102,7 +4121,7 @@ export class SyncManager {
                     if (sortMethod === 'status') {
                         const sA = getStatus(a);
                         const sB = getStatus(b);
-                        if (sA !== sB) return sB - sA; // Online first
+                        if (sA !== sB) {return sB - sA;} // Online first
                         // Tie-breaker: Last Sync
                         return (new Date(b.lastSync || 0).getTime()) - (new Date(a.lastSync || 0).getTime());
                     } else if (sortMethod === 'sync') {
@@ -4171,9 +4190,9 @@ export class SyncManager {
                     vscode.env.openExternal(vscode.Uri.parse('https://github.com/unchase/antigravity-storage-manager'));
                 } else {
                     // Sort button
-                    if (sortMethod === 'status') sortMethod = 'sync';
-                    else if (sortMethod === 'sync') sortMethod = 'name';
-                    else sortMethod = 'status';
+                    if (sortMethod === 'status') {sortMethod = 'sync';}
+                    else if (sortMethod === 'sync') {sortMethod = 'name';}
+                    else {sortMethod = 'status';}
                     updateItems();
                 }
             });
@@ -4371,7 +4390,7 @@ export class SyncManager {
             if (fs.existsSync(taskPath)) {
                 const content = fs.readFileSync(taskPath, 'utf8');
                 const match = content.match(/^#\s+(.*)/);
-                if (match) return match[1].trim();
+                if (match) {return match[1].trim();}
             }
         } catch (e: any) {
             vscode.window.showErrorMessage(lm.t('Failed to get conversation title for {0}: {1}', conversationId, e.message));
@@ -4481,20 +4500,20 @@ export class SyncManager {
         });
 
         steps.forEach((step, index) => {
-            if (step._mergedIntoPlanner) return;
+            if (step._mergedIntoPlanner) {return;}
 
             // Deduplicate: Skip steps we've already seen (by id)
             if (step.id && seenStepIds.has(step.id)) {
                 return;
             }
-            if (step.id) seenStepIds.add(step.id);
+            if (step.id) {seenStepIds.add(step.id);}
 
             // Deduplicate by Trajectory + Execution IDs (often occurs for redundant notification steps)
             const trajId = step.trajectoryId || step.metadata?.sourceTrajectoryStepInfo?.trajectoryId;
             const execId = step.executionId || step.metadata?.executionId || step.metadata?.sourceTrajectoryStepInfo?.executionId;
             if (trajId && execId) {
                 const teKey = `${trajId}|${execId}|${step.type || ''}`;
-                if (seenTrajExecs.has(teKey)) return;
+                if (seenTrajExecs.has(teKey)) {return;}
                 seenTrajExecs.add(teKey);
             }
 
@@ -4651,7 +4670,7 @@ export class SyncManager {
         const getStepTimestamp = (s: any) => {
             const first = s.steps ? s.steps[0] : s;
             const pt = first.timestamp || first.header?.timestamp || first.metadata?.createdAt || first.createdAt;
-            if (!pt) return 0;
+            if (!pt) {return 0;}
             return (typeof pt === 'number' && pt < 10000000000) ? pt * 1000 : new Date(pt).getTime();
         };
 
@@ -4712,7 +4731,7 @@ export class SyncManager {
                     if (s.type === 'THINKING_GROUP') {
                         const thoughtText = s.content.map((t: string) => {
                             const trimmedText = t.trim();
-                            if (trimmedText) seenGroupText.add(trimmedText);
+                            if (trimmedText) {seenGroupText.add(trimmedText);}
                             const rendered = this.md ? this.md.render(t) : t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
                             return this.renderToolCalls(rendered, seenExecIds);
                         }).join('<hr style="border:0; border-top:1px dashed var(--vscode-widget-border); margin: 12px 0;">');
@@ -4758,7 +4777,7 @@ export class SyncManager {
                     const cleanText = (s.text || '').trim();
                     if (cleanText) {
                         // Deduplicate: If this exact text was already shown in this group (e.g. in a thought block), skip it
-                        if (Array.from(seenGroupText).some(t => t.includes(cleanText) || cleanText.includes(t) || (cleanText.length > 50 && t.includes(cleanText.substring(0, 50))))) return '';
+                        if (Array.from(seenGroupText).some(t => t.includes(cleanText) || cleanText.includes(t) || (cleanText.length > 50 && t.includes(cleanText.substring(0, 50))))) {return '';}
                         seenGroupText.add(cleanText);
 
                         try {
@@ -4798,7 +4817,7 @@ export class SyncManager {
                     const attachments = this.renderAttachments(s);
 
 
-                    if (!stepRendered.trim() && !attachments.trim()) return '';
+                    if (!stepRendered.trim() && !attachments.trim()) {return '';}
 
                     return `<div class="step-content">
                                 ${stepRendered}
@@ -4882,7 +4901,7 @@ export class SyncManager {
                 const seenExecIds = new Set<string>();
                 const preRenderedMessages = groupSteps.map((s: any) => {
                     const { isUser, isModel, isError, sender } = s;
-                    if (!isUser && !isModel && !isError) return '';
+                    if (!isUser && !isModel && !isError) {return '';}
 
                     // Get timestamp
                     let timestampDisplay = '';
@@ -4922,7 +4941,7 @@ export class SyncManager {
                         contentHtml = this.renderToolCalls(contentHtml, seenExecIds);
                     }
 
-                    if (!contentHtml.trim()) return '';
+                    if (!contentHtml.trim()) {return '';}
 
                     const avatar = isUser ? '👤' : isError ? '⚠️' : isModel ? '🤖' : '⚙️';
                     const senderName = sender || (isUser ? lm.t('User') : isError ? lm.t('Error') : lm.t('AI'));
@@ -5795,7 +5814,7 @@ export class SyncManager {
     }
 
     private extractStepText(step: any): string {
-        if (!step) return '';
+        if (!step) {return '';}
         const lm = LocalizationManager.getInstance();
 
         let text = '';
@@ -5827,10 +5846,10 @@ export class SyncManager {
 
             // Enhanced: Also try to extract tool calls if they exist, even if it's an error
             const toolCalls: any[] = [];
-            if (Array.isArray(step.plannerResponse?.toolCalls)) toolCalls.push(...step.plannerResponse.toolCalls);
+            if (Array.isArray(step.plannerResponse?.toolCalls)) {toolCalls.push(...step.plannerResponse.toolCalls);}
             if (step.metadata?.toolCall) {
-                if (Array.isArray(step.metadata.toolCall)) toolCalls.push(...step.metadata.toolCall);
-                else toolCalls.push(step.metadata.toolCall);
+                if (Array.isArray(step.metadata.toolCall)) {toolCalls.push(...step.metadata.toolCall);}
+                else {toolCalls.push(step.metadata.toolCall);}
             }
 
             if (toolCalls.length > 0) {
@@ -5856,10 +5875,10 @@ export class SyncManager {
             const parts: string[] = [];
 
             const thinking = step.plannerResponse?.thinking || step.plannerResponse?.thought || '';
-            if (thinking) parts.push(thinking);
+            if (thinking) {parts.push(thinking);}
 
             const resp = step.plannerResponse?.response || step.plannerResponse?.modifiedResponse || (typeof step.plannerResponse?.message === 'string' ? step.plannerResponse.message : '');
-            if (resp) parts.push(resp);
+            if (resp) {parts.push(resp);}
 
             const toolCalls: any[] = [];
             if (Array.isArray(step.plannerResponse?.toolCalls)) {
@@ -5867,8 +5886,8 @@ export class SyncManager {
             }
             if (step.metadata?.toolCall) {
                 // If it's a single object (from metadata), Wrap it in array
-                if (Array.isArray(step.metadata.toolCall)) toolCalls.push(...step.metadata.toolCall);
-                else toolCalls.push(step.metadata.toolCall);
+                if (Array.isArray(step.metadata.toolCall)) {toolCalls.push(...step.metadata.toolCall);}
+                else {toolCalls.push(step.metadata.toolCall);}
             }
 
             if (toolCalls.length > 0) {
@@ -5885,7 +5904,7 @@ export class SyncManager {
             }
         }
 
-        if (text) return text.trim();
+        if (text) {return text.trim();}
 
         const extracted = this.extractFromObj(step).trim();
 
@@ -5916,7 +5935,7 @@ export class SyncManager {
                     }
 
                     // If we haven't even tried to pre-fetch (empty object mostly), return empty for now
-                    if (!step.type && !step.modelResponse && !step.userInput) return '';
+                    if (!step.type && !step.modelResponse && !step.userInput) {return '';}
                 }
 
                 // If the message is cleared and we have no pointers, show a placeholders
@@ -5937,7 +5956,7 @@ export class SyncManager {
             if (seenExecIds) {
                 // If execId is missing, use tool name + args as a fallback deduplication key
                 const dedupeId = execId || `${toolName}:${base64Args || ''}`;
-                if (seenExecIds.has(dedupeId)) return '';
+                if (seenExecIds.has(dedupeId)) {return '';}
                 seenExecIds.add(dedupeId);
             }
             let fileBadge = '';
@@ -6071,11 +6090,11 @@ export class SyncManager {
                         let summary = args.TaskSummaryWithCitations || args.TaskSummary || '';
 
                         // Handle %SAME% logic
-                        if (name === '%SAME%') name = this.lastTaskName || '';
-                        else if (name) this.lastTaskName = name;
+                        if (name === '%SAME%') {name = this.lastTaskName || '';}
+                        else if (name) {this.lastTaskName = name;}
 
-                        if (summary === '%SAME%') summary = this.lastTaskSummary || '';
-                        else if (summary) this.lastTaskSummary = summary;
+                        if (summary === '%SAME%') {summary = this.lastTaskSummary || '';}
+                        else if (summary) {this.lastTaskSummary = summary;}
 
                         let summaryHtml = summary;
                         if (summary && this.md && typeof this.md.render === 'function') {
@@ -6164,7 +6183,7 @@ export class SyncManager {
             const lineNumStr = startLine >= 0 ? `<span class="line-num">${currentLine}</span>` : '';
             const lineContent = this.highlightDiff(l);
             html += `<div class="diff-line">${lineNumStr}<span style="flex: 1;">${lineContent || ' '}</span></div>`;
-            if (startLine >= 0) currentLine++;
+            if (startLine >= 0) {currentLine++;}
         });
 
         html += '</div></div></div>';
@@ -6179,8 +6198,8 @@ export class SyncManager {
         let delCount = 0;
         let addCount = 0;
 
-        oldLines.forEach(l => { if (l.trim() || oldLines.length === 1) delCount++; });
-        newLines.forEach(l => { if (l.trim() || newLines.length === 1) addCount++; });
+        oldLines.forEach(l => { if (l.trim() || oldLines.length === 1) {delCount++;} });
+        newLines.forEach(l => { if (l.trim() || newLines.length === 1) {addCount++;} });
 
         let html = '<div class="diff-container">';
         const iconSvg = filename ? getFileIconSvg(filename) : '<span class="icon">📝</span>';
@@ -6202,7 +6221,7 @@ export class SyncManager {
                 const lineContent = this.highlightDiff(l);
                 html += `<div class="diff-line diff-del">${lineNumStr}- ${lineContent}</div>`;
             }
-            if (startLine > 0) currentLine++;
+            if (startLine > 0) {currentLine++;}
         });
 
         currentLine = startLine;
@@ -6212,7 +6231,7 @@ export class SyncManager {
                 const lineContent = this.highlightDiff(l);
                 html += `<div class="diff-line diff-add">${lineNumStr}+ ${lineContent}</div>`;
             }
-            if (startLine > 0) currentLine++;
+            if (startLine > 0) {currentLine++;}
         });
         html += '</div></div></div>';
         return html;
@@ -6479,7 +6498,7 @@ export class SyncManager {
                             const content = res.content || res.text || (typeof res === 'string' ? res : '');
                             if (content) {
                                 let rendered = content;
-                                if (this.md) rendered = this.md.render(content);
+                                if (this.md) {rendered = this.md.render(content);}
                                 const containerHtml = `<div class="diff-container">
                                     <div class="diff-header collapsed" onclick="toggleDiff(this)">
                                         <span class="icon">🌐</span> ${lm.t('Page Content')}
@@ -6536,9 +6555,9 @@ export class SyncManager {
                                     const name = cci.nodeName || '???';
 
                                     let icon = '📦';
-                                    if (cci.contextType?.includes('CLASS')) icon = '🏛️';
-                                    if (cci.contextType?.includes('FUNCTION') || cci.contextType?.includes('METHOD')) icon = 'ƒ';
-                                    if (cci.contextType?.includes('INTERFACE')) icon = '📋';
+                                    if (cci.contextType?.includes('CLASS')) {icon = '🏛️';}
+                                    if (cci.contextType?.includes('FUNCTION') || cci.contextType?.includes('METHOD')) {icon = 'ƒ';}
+                                    if (cci.contextType?.includes('INTERFACE')) {icon = '📋';}
 
                                     return `<div class="outline-item" style="display: flex; gap: 8px; font-size: 0.9em; padding: 2px 0;">
                                         <span style="opacity: 0.6; min-width: 20px; text-align: center;">${icon}</span>
@@ -6591,10 +6610,10 @@ export class SyncManager {
                         if (!fileContent) {
                             // Priority 2: Parse raw string output from tool
                             const linesMatch = outputStr.match(/Total Lines: (\d+)/);
-                            if (linesMatch) numLines = linesMatch[1];
+                            if (linesMatch) {numLines = linesMatch[1];}
 
                             const bytesMatch = outputStr.match(/Total Bytes: (\d+)/);
-                            if (bytesMatch) numBytes = bytesMatch[1];
+                            if (bytesMatch) {numBytes = bytesMatch[1];}
 
                             const lines = outputStr.split('\n');
                             const codeLines: string[] = [];
@@ -6604,11 +6623,11 @@ export class SyncManager {
                                 if (!capture && /^\d+:/.test(line)) {
                                     capture = true;
                                     const m = line.match(/^(\d+):/);
-                                    if (m) startLine = parseInt(m[1]);
+                                    if (m) {startLine = parseInt(m[1]);}
                                 }
 
                                 if (capture) {
-                                    if (line.includes('The above content does NOT show the entire file contents')) break;
+                                    if (line.includes('The above content does NOT show the entire file contents')) {break;}
 
                                     if (/^\d+:/.test(line)) {
                                         codeLines.push(line.replace(/^\d+:\s?/, ''));
@@ -6619,7 +6638,7 @@ export class SyncManager {
                                     }
                                 }
                             }
-                            if (codeLines.length > 0) fileContent = codeLines.join('\n');
+                            if (codeLines.length > 0) {fileContent = codeLines.join('\n');}
 
                             // Priority 3: Raw fallback if structured/regex parsing failed and it's not JSON
                             if (!fileContent && outputStr.trim()) {
@@ -6640,10 +6659,10 @@ export class SyncManager {
 
                         if (fileContent) {
                             const parts = [];
-                            if (numLines) parts.push(`**${lm.t('Num Lines')}:** ${numLines}`);
-                            if (numBytes) parts.push(`**${lm.t('Num Bytes')}:** ${numBytes}`);
+                            if (numLines) {parts.push(`**${lm.t('Num Lines')}:** ${numLines}`);}
+                            if (numBytes) {parts.push(`**${lm.t('Num Bytes')}:** ${numBytes}`);}
 
-                            if (parts.length > 0) infos.push(parts.join(' | '));
+                            if (parts.length > 0) {infos.push(parts.join(' | '));}
 
                             const filePath = args.AbsolutePath || args.Path || args.File || args.TargetFile || '';
                             const displayTitle = filePath ? path.basename(filePath) : undefined;
@@ -6700,37 +6719,37 @@ export class SyncManager {
         }
 
         let result = prefixInfo + toolBadge;
-        if (extraInfo) result += '\n' + extraInfo;
+        if (extraInfo) {result += '\n' + extraInfo;}
         return result;
     }
 
     private extractFromObj(obj: any): string {
-        if (!obj) return '';
-        if (typeof obj === 'string') return obj;
-        if (Array.isArray(obj)) return obj.map(o => this.extractFromObj(o)).filter(Boolean).join('\n');
+        if (!obj) {return '';}
+        if (typeof obj === 'string') {return obj;}
+        if (Array.isArray(obj)) {return obj.map(o => this.extractFromObj(o)).filter(Boolean).join('\n');}
 
         // Standard protobuf text containers
         if (obj.content !== undefined) {
-            if (typeof obj.content === 'string') return obj.content;
-            if (Array.isArray(obj.content)) return this.extractFromObj(obj.content);
+            if (typeof obj.content === 'string') {return obj.content;}
+            if (Array.isArray(obj.content)) {return this.extractFromObj(obj.content);}
         }
-        if (obj.text !== undefined && typeof obj.text === 'string') return obj.text;
+        if (obj.text !== undefined && typeof obj.text === 'string') {return obj.text;}
         if (obj.text && typeof obj.text === 'object') {
             const res = obj.text.content || obj.text.text || obj.text.value;
-            if (typeof res === 'string') return res;
+            if (typeof res === 'string') {return res;}
             return this.extractFromObj(obj.text);
         }
         if (obj.value !== undefined) {
-            if (typeof obj.value === 'string') return obj.value;
-            if (typeof obj.value === 'object') return this.extractFromObj(obj.value);
+            if (typeof obj.value === 'string') {return obj.value;}
+            if (typeof obj.value === 'object') {return this.extractFromObj(obj.value);}
         }
 
         // Specific fields depending on object type
-        if (obj.modelResponse) return this.extractFromObj(obj.modelResponse.content || obj.modelResponse.parts || obj.modelResponse.text || obj.modelResponse);
-        if (obj.userInput) return this.extractFromObj(obj.userInput.items || obj.userInput.userResponse || obj.userInput.text || obj.userInput);
+        if (obj.modelResponse) {return this.extractFromObj(obj.modelResponse.content || obj.modelResponse.parts || obj.modelResponse.text || obj.modelResponse);}
+        if (obj.userInput) {return this.extractFromObj(obj.userInput.items || obj.userInput.userResponse || obj.userInput.text || obj.userInput);}
         if (obj.plannerResponse) {
             const thinking = obj.plannerResponse.thinking || obj.plannerResponse.thought;
-            if (thinking) return typeof thinking === 'string' ? thinking : this.extractFromObj(thinking);
+            if (thinking) {return typeof thinking === 'string' ? thinking : this.extractFromObj(thinking);}
             const resp = obj.plannerResponse.response || obj.plannerResponse.modifiedResponse || obj.plannerResponse.message || obj.plannerResponse.text;
             return this.extractFromObj(resp || obj.plannerResponse);
         }
@@ -6738,29 +6757,29 @@ export class SyncManager {
             const err = obj.errorMessage.error || obj.errorMessage || {};
             const userMsg = err.userErrorMessage || err.message || (typeof obj.errorMessage === 'string' ? obj.errorMessage : '');
             const details = err.shortError || err.fullError || err.modelErrorMessage || '';
-            if (userMsg && details && details !== userMsg) return `${userMsg}\n\n${details}`;
+            if (userMsg && details && details !== userMsg) {return `${userMsg}\n\n${details}`;}
             return userMsg || details || this.extractFromObj(obj.errorMessage);
         }
-        if (obj.notifyUser) return obj.notifyUser.notificationContent || obj.notifyUser.message || this.extractFromObj(obj.notifyUser);
-        if (obj.message) return this.extractFromObj(obj.message);
+        if (obj.notifyUser) {return obj.notifyUser.notificationContent || obj.notifyUser.message || this.extractFromObj(obj.notifyUser);}
+        if (obj.message) {return this.extractFromObj(obj.message);}
 
         // Expanded generic fields
-        if (obj.thinking) return typeof obj.thinking === 'string' ? obj.thinking : this.extractFromObj(obj.thinking);
+        if (obj.thinking) {return typeof obj.thinking === 'string' ? obj.thinking : this.extractFromObj(obj.thinking);}
         if (obj.error) {
             const userMsg = obj.error.userErrorMessage || obj.error.message || '';
             const details = obj.error.shortError || obj.error.fullError || obj.error.modelErrorMessage || '';
-            if (userMsg && details && details !== userMsg) return `${userMsg}\n\n${details}`;
+            if (userMsg && details && details !== userMsg) {return `${userMsg}\n\n${details}`;}
             return userMsg || details || this.extractFromObj(obj.error);
         }
-        if (obj.modelErrorMessage) return obj.modelErrorMessage;
+        if (obj.modelErrorMessage) {return obj.modelErrorMessage;}
 
-        if (obj.details) return this.extractFromObj(obj.details);
-        if (obj.stack) return this.extractFromObj(obj.stack);
-        if (obj.description) return this.extractFromObj(obj.description);
-        if (obj.summary) return this.extractFromObj(obj.summary);
-        if (obj.query) return this.extractFromObj(obj.query);
-        if (obj.input) return this.extractFromObj(obj.input);
-        if (obj.notificationContent) return this.extractFromObj(obj.notificationContent);
+        if (obj.details) {return this.extractFromObj(obj.details);}
+        if (obj.stack) {return this.extractFromObj(obj.stack);}
+        if (obj.description) {return this.extractFromObj(obj.description);}
+        if (obj.summary) {return this.extractFromObj(obj.summary);}
+        if (obj.query) {return this.extractFromObj(obj.query);}
+        if (obj.input) {return this.extractFromObj(obj.input);}
+        if (obj.notificationContent) {return this.extractFromObj(obj.notificationContent);}
 
         // Tool Calls
         if (obj.toolCalls && Array.isArray(obj.toolCalls)) {
@@ -6768,8 +6787,8 @@ export class SyncManager {
         }
 
         // Generic fallbacks for any object that might have 'content' or 'text' as a deeper field
-        if (obj.items && Array.isArray(obj.items)) return this.extractFromObj(obj.items);
-        if (obj.parts && Array.isArray(obj.parts)) return this.extractFromObj(obj.parts);
+        if (obj.items && Array.isArray(obj.items)) {return this.extractFromObj(obj.items);}
+        if (obj.parts && Array.isArray(obj.parts)) {return this.extractFromObj(obj.parts);}
 
         return '';
     }
@@ -6789,7 +6808,7 @@ export class SyncManager {
         const modelItems = Array.isArray(modelResponseItems) ? modelResponseItems : [];
 
         const items = [...userInputItems, ...userInputMedia, ...modelItems];
-        if (items.length === 0) return '';
+        if (items.length === 0) {return '';}
 
         const attachmentsHtml = items.map((item: any) => {
             if (item.image || item.inlineData?.mimeType?.startsWith('image/') || (item.mimeType?.startsWith('image/') && item.inlineData)) {
@@ -6874,7 +6893,7 @@ export class SyncManager {
     }
 
     private getHumanReadableModelName(rawName: string): string {
-        if (!rawName) return '';
+        if (!rawName) {return '';}
 
         // Strip known prefixes from input (e.g. "MODEL_PLACEHOLDER_M37" → "M37")
         const stripPrefix = (name: string) => name.replace(/^MODEL_PLACEHOLDER_|^PLACEHOLDER_|^MODEL_OPENAI_|^models\//, '');
@@ -6894,7 +6913,7 @@ export class SyncManager {
                         || (m.modelId || '').toUpperCase() === cleanUpper
                         || (m.label || '').toUpperCase() === cleanUpper;
                 });
-                if (match?.label) return match.label;
+                if (match?.label) {return match.label;}
             }
         }
 
@@ -6903,7 +6922,7 @@ export class SyncManager {
     }
 
     private renderTokenUsage(usage: any, latencyMs: number = 0): string {
-        if (!usage && latencyMs === 0) return '';
+        if (!usage && latencyMs === 0) {return '';}
         const lm = LocalizationManager.getInstance();
 
         const input = parseInt(usage.inputTokens) || 0;
@@ -6913,13 +6932,13 @@ export class SyncManager {
         const total = input + output;
         const totalWithThr = total + thinking + cache;
 
-        if (totalWithThr === 0 && latencyMs === 0) return '';
+        if (totalWithThr === 0 && latencyMs === 0) {return '';}
 
         let html = '<div class="token-usage">';
-        if (input > 0) html += `<div class="token-badge"><span class="token-icon">📥</span><span>${lm.t('Input')}: ${input.toLocaleString()}</span></div>`;
-        if (output > 0) html += `<div class="token-badge"><span class="token-icon">📤</span><span>${lm.t('Output')}: ${output.toLocaleString()}</span></div>`;
-        if (thinking > 0) html += `<div class="token-badge thinking"><span class="token-icon">🧠</span><span>${lm.t('Thinking')}: ${thinking.toLocaleString()}</span></div>`;
-        if (cache > 0) html += `<div class="token-badge"><span class="token-icon">💾</span><span>${lm.t('Cached')}: ${cache.toLocaleString()}</span></div>`;
+        if (input > 0) {html += `<div class="token-badge"><span class="token-icon">📥</span><span>${lm.t('Input')}: ${input.toLocaleString()}</span></div>`;}
+        if (output > 0) {html += `<div class="token-badge"><span class="token-icon">📤</span><span>${lm.t('Output')}: ${output.toLocaleString()}</span></div>`;}
+        if (thinking > 0) {html += `<div class="token-badge thinking"><span class="token-icon">🧠</span><span>${lm.t('Thinking')}: ${thinking.toLocaleString()}</span></div>`;}
+        if (cache > 0) {html += `<div class="token-badge"><span class="token-icon">💾</span><span>${lm.t('Cached')}: ${cache.toLocaleString()}</span></div>`;}
 
         if (latencyMs > 0) {
             const seconds = (latencyMs / 1000).toFixed(1);
@@ -6955,7 +6974,7 @@ export class SyncManager {
                         const obj = typeof details === 'string' ? JSON.parse(details) : details;
                         const highlightedJson = this.highlightDiff(JSON.stringify(obj, null, 2));
                         detailsHtml = `<pre>${highlightedJson}</pre>`;
-                        if (!displayMessage && obj.message) displayMessage = obj.message;
+                        if (!displayMessage && obj.message) {displayMessage = obj.message;}
                     } catch {
                         detailsHtml = `<pre>${this.highlightDiff(detailsStr)}</pre>`;
                     }
@@ -6977,17 +6996,17 @@ export class SyncManager {
                             const obj = JSON.parse(jsonStr);
                             if (obj.error) {
                                 if (obj.error.message) {
-                                    if (!displayMessage) displayMessage = obj.error.message;
+                                    if (!displayMessage) {displayMessage = obj.error.message;}
                                     detailsHtml += `<div class="error-message" style="margin: 0; padding: 2px 0;"><b>Message:</b> ${obj.error.message}</div>`;
                                 }
-                                if (obj.error.status) detailsHtml += `<div class="error-status" style="margin: 0; padding: 2px 0;"><b>Status:</b> ${obj.error.status}</div>`;
+                                if (obj.error.status) {detailsHtml += `<div class="error-status" style="margin: 0; padding: 2px 0;"><b>Status:</b> ${obj.error.status}</div>`;}
                                 if (obj.error.details) {
                                     const highlightedDetails = this.highlightDiff(JSON.stringify(obj.error.details, null, 2));
                                     detailsHtml += `<pre>${highlightedDetails}</pre>`;
                                 }
                             } else {
                                 detailsHtml = `<pre>${jsonStr}</pre>`;
-                                if (!displayMessage && obj.message) displayMessage = obj.message;
+                                if (!displayMessage && obj.message) {displayMessage = obj.message;}
                             }
                         } catch {
                             detailsHtml = `<pre>${this.highlightDiff(jsonStr)}</pre>`;

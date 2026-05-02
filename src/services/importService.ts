@@ -112,6 +112,17 @@ function nowSecs(): number {
     return Math.floor(Date.now() / 1000);
 }
 
+function isSafeAccountId(accountId: string): boolean {
+    const trimmed = accountId.trim();
+    if (!trimmed || trimmed === '.' || trimmed === '..') {
+        return false;
+    }
+
+    return trimmed === path.basename(trimmed)
+        && !trimmed.includes(path.posix.sep)
+        && !trimmed.includes(path.win32.sep);
+}
+
 /**
  * Convert a CPA single-object file into the full CodexAccountFull shape so
  * both source formats go through the same write path.
@@ -271,21 +282,32 @@ export async function importAccountsFromDir(importDir?: string): Promise<ImportR
 
     // Write new accounts
     for (const account of byId.values()) {
+        const normalizedAccountId = account.id.trim();
         const idLower = account.email.toLowerCase();
 
-        if (existingIds.has(account.id) || existingEmails.has(idLower)) {
+        if (!isSafeAccountId(normalizedAccountId)) {
+            const error = `Unsafe account id skipped for ${account.email}: ${account.id}`;
+            result.errors.push(error);
+            logger.warn(`[importService] ${error}`);
+            continue;
+        }
+
+        if (existingIds.has(normalizedAccountId) || existingEmails.has(idLower)) {
             result.skipped++;
             logger.debug(`[importService] Skip (duplicate): ${account.email}`);
             continue;
         }
 
         // Write full account file
-        const accountFilePath = path.join(accountsDir, `${account.id}.json`);
-        fs.writeFileSync(accountFilePath, JSON.stringify(account, null, 2), 'utf8');
+        const accountFilePath = path.join(accountsDir, `${normalizedAccountId}.json`);
+        fs.writeFileSync(accountFilePath, JSON.stringify({
+            ...account,
+            id: normalizedAccountId,
+        }, null, 2), 'utf8');
 
         // Append to index
         index.accounts.push({
-            id: account.id,
+            id: normalizedAccountId,
             email: account.email,
             plan_type: account.plan_type ?? null,
             subscription_active_until: account.subscription_active_until ?? null,
@@ -293,11 +315,11 @@ export async function importAccountsFromDir(importDir?: string): Promise<ImportR
             last_used: account.last_used,
         });
 
-        existingIds.add(account.id);
+        existingIds.add(normalizedAccountId);
         existingEmails.add(idLower);
         result.imported++;
         result.emails.push(account.email);
-        logger.info(`[importService] Imported: ${account.email} (${account.id})`);
+        logger.info(`[importService] Imported: ${account.email} (${normalizedAccountId})`);
     }
 
     // Persist updated index

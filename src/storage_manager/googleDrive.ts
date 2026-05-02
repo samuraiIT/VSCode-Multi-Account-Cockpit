@@ -106,6 +106,43 @@ export class GoogleDriveService {
         });
     }
 
+    private ensureSafeName(value: string, label: string): string {
+        const trimmed = value.trim();
+        if (!trimmed || trimmed === '.' || trimmed === '..') {
+            throw new Error(`Invalid ${label}`);
+        }
+        if (trimmed.includes('/') || trimmed.includes('\\')) {
+            throw new Error(`Unsafe ${label}`);
+        }
+        return trimmed;
+    }
+
+    private parseSafeRelativePath(relativePath: string): string[] {
+        const parts = relativePath
+            .split(/[\\/]+/)
+            .map(part => this.ensureSafeName(part, 'relative path segment'));
+
+        if (parts.length === 0) {
+            throw new Error('Invalid relative path');
+        }
+
+        return parts;
+    }
+
+    private escapeDriveQueryValue(value: string): string {
+        return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    private buildNameQuery(name: string, parentId: string, mimeType?: string): string {
+        const escapedName = this.escapeDriveQueryValue(name);
+        const escapedParentId = this.escapeDriveQueryValue(parentId);
+        const mimeClause = mimeType ? ` and mimeType = '${mimeType}'` : '';
+        const parentClause = parentId === 'root'
+            ? ` and 'root' in parents`
+            : ` and '${escapedParentId}' in parents`;
+        return `name = '${escapedName}'${mimeClause}${parentClause} and trashed = false`;
+    }
+
     private get drive(): drive_v3.Drive {
         const currentClient = this.authProvider.getOAuth2Client();
         if (!this._drive || this.lastAuthClient !== currentClient) {
@@ -157,10 +194,9 @@ export class GoogleDriveService {
      * Find or create a folder in Google Drive
      */
     private async findOrCreateFolder(name: string, parentId: string): Promise<string> {
+        const safeName = this.ensureSafeName(name, 'folder name');
         // Search for existing folder
-        const query = parentId === 'root'
-            ? `name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and trashed = false`
-            : `name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`;
+        const query = this.buildNameQuery(safeName, parentId, 'application/vnd.google-apps.folder');
 
         try {
             const response = await this.drive.files.list({
@@ -170,7 +206,7 @@ export class GoogleDriveService {
             });
 
             if (response.data.files && response.data.files.length > 0) {
-                console.log(`Found existing folder '${name}': ${response.data.files[0].id}`);
+                console.log(`Found existing folder '${safeName}': ${response.data.files[0].id}`);
                 return response.data.files[0].id!;
             }
         } catch (error: any) {
@@ -184,7 +220,7 @@ export class GoogleDriveService {
         // Create new folder
         try {
             const folderMetadata: drive_v3.Schema$File = {
-                name: name,
+                name: safeName,
                 mimeType: 'application/vnd.google-apps.folder',
                 parents: [parentId]
             };
@@ -250,8 +286,9 @@ export class GoogleDriveService {
             await this.ensureSyncFolders();
         }
 
-        const fileName = `${machineId}.json.enc`;
-        const query = `name = '${fileName}' and '${this.machinesFolderId}' in parents and trashed = false`;
+        const safeMachineId = this.ensureSafeName(machineId, 'machine id');
+        const fileName = `${safeMachineId}.json.enc`;
+        const query = this.buildNameQuery(fileName, this.machinesFolderId!);
 
         const response = await this.drive.files.list({
             q: query,
@@ -275,7 +312,7 @@ export class GoogleDriveService {
         }
 
         await this.uploadOrUpdateFile(
-            `${machineId}.json.enc`,
+            `${this.ensureSafeName(machineId, 'machine id')}.json.enc`,
             encryptedState,
             this.machinesFolderId!,
             'application/octet-stream'
@@ -313,7 +350,7 @@ export class GoogleDriveService {
             await this.ensureSyncFolders();
         }
 
-        const fileName = `${conversationId}.zip.enc`;
+        const fileName = `${this.ensureSafeName(conversationId, 'conversation id')}.zip.enc`;
         return this.uploadOrUpdateFile(
             fileName,
             encryptedData,
@@ -330,8 +367,8 @@ export class GoogleDriveService {
             await this.ensureSyncFolders();
         }
 
-        const fileName = `${conversationId}.zip.enc`;
-        const query = `name = '${fileName}' and '${this.conversationsFolderId}' in parents and trashed = false`;
+        const fileName = `${this.ensureSafeName(conversationId, 'conversation id')}.zip.enc`;
+        const query = this.buildNameQuery(fileName, this.conversationsFolderId!);
 
         const response = await this.drive.files.list({
             q: query,
@@ -354,8 +391,8 @@ export class GoogleDriveService {
             await this.ensureSyncFolders();
         }
 
-        const fileName = `${conversationId}.zip.enc`;
-        const query = `name = '${fileName}' and '${this.conversationsFolderId}' in parents and trashed = false`;
+        const fileName = `${this.ensureSafeName(conversationId, 'conversation id')}.zip.enc`;
+        const query = this.buildNameQuery(fileName, this.conversationsFolderId!);
 
         const response = await this.drive.files.list({
             q: query,
@@ -403,7 +440,7 @@ export class GoogleDriveService {
         if (!this.conversationsFolderId) {
             await this.ensureSyncFolders();
         }
-        return this.findOrCreateFolder(conversationId, this.conversationsFolderId!);
+        return this.findOrCreateFolder(this.ensureSafeName(conversationId, 'conversation id'), this.conversationsFolderId!);
     }
 
     /**
@@ -418,7 +455,7 @@ export class GoogleDriveService {
         const convFolderId = await this.getOrCreateConversationFolder(conversationId);
 
         // Create subdirectories if needed (e.g., brain/subdir/file.md)
-        const parts = relativePath.split('/');
+        const parts = this.parseSafeRelativePath(relativePath);
         let parentId = convFolderId;
 
         for (let i = 0; i < parts.length - 1; i++) {
@@ -448,11 +485,11 @@ export class GoogleDriveService {
         const convFolderId = await this.getOrCreateConversationFolder(conversationId);
 
         // Navigate to the correct subfolder
-        const parts = relativePath.split('/');
+        const parts = this.parseSafeRelativePath(relativePath);
         let parentId = convFolderId;
 
         for (let i = 0; i < parts.length - 1; i++) {
-            const subFolderQuery = `name = '${parts[i]}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`;
+            const subFolderQuery = this.buildNameQuery(parts[i], parentId, 'application/vnd.google-apps.folder');
             const subFolderRes = await this.drive.files.list({ q: subFolderQuery, fields: 'files(id)', spaces: 'drive' });
             if (!subFolderRes.data.files || subFolderRes.data.files.length === 0) {
                 return null; // Folder doesn't exist
@@ -461,7 +498,7 @@ export class GoogleDriveService {
         }
 
         const fileName = parts[parts.length - 1] + '.enc';
-        const query = `name = '${fileName}' and '${parentId}' in parents and trashed = false`;
+        const query = this.buildNameQuery(fileName, parentId);
         const response = await this.drive.files.list({ q: query, fields: 'files(id)', spaces: 'drive' });
 
         if (!response.data.files || response.data.files.length === 0) {
@@ -480,11 +517,11 @@ export class GoogleDriveService {
     ): Promise<void> {
         const convFolderId = await this.getOrCreateConversationFolder(conversationId);
 
-        const parts = relativePath.split('/');
+        const parts = this.parseSafeRelativePath(relativePath);
         let parentId = convFolderId;
 
         for (let i = 0; i < parts.length - 1; i++) {
-            const subFolderQuery = `name = '${parts[i]}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`;
+            const subFolderQuery = this.buildNameQuery(parts[i], parentId, 'application/vnd.google-apps.folder');
             const subFolderRes = await this.drive.files.list({ q: subFolderQuery, fields: 'files(id)', spaces: 'drive' });
             if (!subFolderRes.data.files || subFolderRes.data.files.length === 0) {
                 return; // Folder doesn't exist, nothing to delete
@@ -493,7 +530,7 @@ export class GoogleDriveService {
         }
 
         const fileName = parts[parts.length - 1] + '.enc';
-        const query = `name = '${fileName}' and '${parentId}' in parents and trashed = false`;
+        const query = this.buildNameQuery(fileName, parentId);
         const response = await this.drive.files.list({ q: query, fields: 'files(id)', spaces: 'drive' });
 
         if (response.data.files && response.data.files.length > 0) {
@@ -513,7 +550,11 @@ export class GoogleDriveService {
         }
 
         // Check if conversation folder exists
-        const query = `name = '${conversationId}' and mimeType = 'application/vnd.google-apps.folder' and '${this.conversationsFolderId}' in parents and trashed = false`;
+        const query = this.buildNameQuery(
+            this.ensureSafeName(conversationId, 'conversation id'),
+            this.conversationsFolderId!,
+            'application/vnd.google-apps.folder',
+        );
         const response = await this.drive.files.list({ q: query, fields: 'files(id)', spaces: 'drive' });
 
         if (!response.data.files || response.data.files.length === 0) {
@@ -633,14 +674,15 @@ export class GoogleDriveService {
     ): Promise<string> {
         const lm = LocalizationManager.getInstance();
         // Check if file exists
-        const query = `name = '${name}' and '${parentId}' in parents and trashed = false`;
+        const safeName = this.ensureSafeName(name, 'file name');
+        const query = this.buildNameQuery(safeName, parentId);
 
         // Retry the list operation too, just in case
         const existing = await this.withRetry(() => this.drive.files.list({
             q: query,
             fields: 'files(id)',
             spaces: 'drive'
-        }), lm.t('Check existence of {0}', name));
+        }), lm.t('Check existence of {0}', safeName));
 
         if (existing.data.files && existing.data.files.length > 0) {
             // Update existing file
@@ -657,13 +699,13 @@ export class GoogleDriveService {
                     mimeType: mimeType,
                     body: bufferToStream(data)
                 }
-            }), lm.t('Update file {0}', name));
+            }), lm.t('Update file {0}', safeName));
 
             return fileId;
         } else {
             // Create new file
             const requestBody: any = {
-                name: name,
+                name: safeName,
                 parents: [parentId]
             };
             if (appProperties) {
@@ -677,7 +719,7 @@ export class GoogleDriveService {
                     body: bufferToStream(data)
                 },
                 fields: 'id'
-            }), lm.t('Create file {0}', name));
+            }), lm.t('Create file {0}', safeName));
 
             return response.data.id!;
         }
@@ -811,7 +853,7 @@ export class GoogleDriveService {
      * Release the sync lock
      */
     async releaseLock(machineId: string): Promise<void> {
-        if (!this.syncFolderId) return;
+        if (!this.syncFolderId) {return;}
 
         const lockFileName = 'sync.lock';
         const query = `name = '${lockFileName}' and '${this.syncFolderId}' in parents and trashed = false`;

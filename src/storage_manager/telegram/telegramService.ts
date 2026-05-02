@@ -18,7 +18,9 @@ export class TelegramService {
     constructor(private context: vscode.ExtensionContext) {
         // Load persisted username mapping
         const persistedMap = this.context.globalState.get<{ [key: string]: string }>('telegram.usernameToChatId', {});
-        this.usernameToChatId = new Map(Object.entries(persistedMap));
+        this.usernameToChatId = new Map(
+            Object.entries(persistedMap).map(([username, chatId]) => [this.normalizeUsername(username), chatId]),
+        );
 
         this.updateConfig();
         this.configChangeListener = vscode.workspace.onDidChangeConfiguration(e => {
@@ -39,7 +41,8 @@ export class TelegramService {
         const oldToken = this.botToken;
         this.botToken = config.get<string>('telegram.botToken');
         this.userIds = config.get<string[]>('telegram.userIds') || [];
-        this.usernames = config.get<string[]>('telegram.usernames') || [];
+        this.usernames = (config.get<string[]>('telegram.usernames') || [])
+            .map(username => this.normalizeUsername(username));
 
         // Filter out empty strings
         this.userIds = this.userIds.filter(id => id && id.trim().length > 0);
@@ -52,12 +55,16 @@ export class TelegramService {
         }
     }
 
+    private normalizeUsername(username: string | undefined): string {
+        return (username || '').trim().replace(/^@+/, '').toLowerCase();
+    }
+
     public isConfigured(): boolean {
         return !!this.botToken;
     }
 
     public startPolling() {
-        if (this.isPolling || !this.botToken) return;
+        if (this.isPolling || !this.botToken) {return;}
         this.isPolling = true;
         this.poll();
     }
@@ -76,7 +83,7 @@ export class TelegramService {
     }
 
     private poll() {
-        if (!this.isPolling || !this.botToken) return;
+        if (!this.isPolling || !this.botToken) {return;}
 
         const data = JSON.stringify({
             offset: this.lastUpdateId + 1,
@@ -98,7 +105,7 @@ export class TelegramService {
             let body = '';
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
-                if (!this.isPolling) return;
+                if (!this.isPolling) {return;}
 
                 if (res.statusCode === 200) {
                     try {
@@ -109,6 +116,7 @@ export class TelegramService {
                                 if (update.message && update.message.text) {
                                     const chatId = String(update.message.chat.id);
                                     const username = update.message.from?.username;
+                                    const normalizedUsername = this.normalizeUsername(username);
 
                                     let authorized = false;
 
@@ -117,14 +125,21 @@ export class TelegramService {
                                         authorized = true;
                                     }
 
-                                    // Check username match
-                                    if (!authorized && username && this.usernames.includes(username)) {
-                                        authorized = true;
-                                        // Store mapping if new or changed
-                                        if (this.usernameToChatId.get(username) !== chatId) {
-                                            this.usernameToChatId.set(username, chatId);
+                                    if (authorized && normalizedUsername && this.usernames.includes(normalizedUsername)) {
+                                        if (this.usernameToChatId.get(normalizedUsername) !== chatId) {
+                                            this.usernameToChatId.set(normalizedUsername, chatId);
                                             this.saveUsernameMapping();
-                                            // console.log(`[Telegram] Linked @${username} to ChatID ${chatId}`);
+                                        }
+                                    }
+
+                                    if (!authorized && normalizedUsername && this.usernames.includes(normalizedUsername)) {
+                                        const mappedChatId = this.usernameToChatId.get(normalizedUsername);
+                                        if (mappedChatId === chatId) {
+                                            authorized = true;
+                                        } else if (!mappedChatId) {
+                                            console.warn(`[Telegram] Username @${normalizedUsername} is configured but not bound to a trusted chat ID yet; rejecting inbound auth`);
+                                        } else {
+                                            console.warn(`[Telegram] Username @${normalizedUsername} attempted from unexpected chat ID ${chatId}`);
                                         }
                                     }
 
@@ -200,7 +215,7 @@ export class TelegramService {
 
     public sendMessage(chatId: string, message: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            if (!this.botToken) return reject(new Error('No bot token'));
+            if (!this.botToken) {return reject(new Error('No bot token'));}
 
             const data = JSON.stringify({
                 chat_id: chatId,

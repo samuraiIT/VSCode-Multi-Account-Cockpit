@@ -14,9 +14,40 @@ export interface CloudCodeRouteOptions {
     cloudCodeUrlOverride?: string;
 }
 
+function isAllowedCloudCodeOverrideHost(hostname: string): boolean {
+    const normalized = hostname.trim().toLowerCase();
+    return normalized === 'localhost'
+        || normalized === '127.0.0.1'
+        || normalized === '::1'
+        || normalized.endsWith('.googleapis.com')
+        || normalized === 'googleapis.com';
+}
+
+function sanitizeCloudCodeBaseUrl(rawUrl: string): string {
+    let parsed: URL;
+    try {
+        parsed = new URL(rawUrl);
+    } catch {
+        throw new Error(`Invalid Cloud Code base URL override: ${rawUrl}`);
+    }
+
+    if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1' && parsed.hostname !== '::1') {
+        throw new Error(`Cloud Code base URL override must use HTTPS: ${rawUrl}`);
+    }
+
+    if (!isAllowedCloudCodeOverrideHost(parsed.hostname)) {
+        throw new Error(`Cloud Code base URL override host is not allowed: ${parsed.hostname}`);
+    }
+
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
+}
+
 export function resolveCloudCodeBaseUrl(route?: CloudCodeRouteOptions): string {
     if (route?.cloudCodeUrlOverride) {
-        return route.cloudCodeUrlOverride;
+        return sanitizeCloudCodeBaseUrl(route.cloudCodeUrlOverride);
     }
     if (route?.isGcpTos) {
         return CLOUDCODE_URL_PROD;
@@ -28,5 +59,6 @@ export function resolveCloudCodeBaseUrl(route?: CloudCodeRouteOptions): string {
 }
 
 export function buildCloudCodeUrl(baseUrl: string, path: string): string {
-    return `${baseUrl}${path}`;
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${baseUrl}${normalizedPath}`;
 }
