@@ -23,6 +23,8 @@
 - `npx eslint src/services/cockpitToolsAllAccounts.ts src/services/cockpitToolsAllAccounts.test.ts`
 - `npx jest src/storage_manager/backup.test.ts --runInBand`
 - `npx eslint src/storage_manager/backup.ts src/storage_manager/backup.test.ts`
+- `npx jest src/storage_manager/commandRegistration.test.ts --runInBand`
+- `npx eslint src/storage_manager/commandRegistration.test.ts`
 
 ## Results
 
@@ -89,6 +91,8 @@
 - `2026-05-03`: `npx eslint src/services/cockpitToolsAllAccounts.ts src/services/cockpitToolsAllAccounts.test.ts` — passed
 - `2026-05-03`: `npx jest src/storage_manager/backup.test.ts --runInBand` — passed (`1` suite, `3` tests)
 - `2026-05-03`: `npx eslint src/storage_manager/backup.ts src/storage_manager/backup.test.ts` — passed
+- `2026-05-03`: `npx jest src/storage_manager/commandRegistration.test.ts --runInBand` — passed (`1` suite, `1` test)
+- `2026-05-03`: `npx eslint src/storage_manager/commandRegistration.test.ts` — passed
 
 ## Remaining caveats
 

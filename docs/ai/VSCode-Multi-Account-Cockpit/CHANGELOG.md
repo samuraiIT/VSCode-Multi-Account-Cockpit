@@ -1,5 +1,11 @@
 # AI Change Log
 
+## 20260503-015700-command-registration-guard
+
+- Committed the previously untracked storage-manager command registration guard test.
+- Tightened the test typing so it passes targeted ESLint cleanly.
+- Preserved this as a no-runtime-change regression slice focused on public `multiCockpit.*` command coverage.
+
 ## 20260503-015100-backup-config-alignment
 
 - Split the backup manager behavior changes into a separate reviewable slice.

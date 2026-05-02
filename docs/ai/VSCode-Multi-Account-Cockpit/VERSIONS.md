@@ -1,5 +1,18 @@
 # Versions
 
+## 20260503-015700-command-registration-guard
+
+- Base commit: `00a7565`
+- Status: `completed`
+- Scope:
+  - committed the missing storage-manager command registration regression guard
+  - cleaned the test to pass targeted ESLint without warnings
+- Changed source files:
+  - `src/storage_manager/commandRegistration.test.ts`
+- Backup:
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-015700-command-registration-guard/changed-files.patch`
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-015700-command-registration-guard/rollback.md`
+
 ## 20260503-015100-backup-config-alignment
 
 - Base commit: `d10f7ff`
