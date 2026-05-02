@@ -25,6 +25,8 @@
 - `npx eslint src/storage_manager/backup.ts src/storage_manager/backup.test.ts`
 - `npx jest src/storage_manager/commandRegistration.test.ts --runInBand`
 - `npx eslint src/storage_manager/commandRegistration.test.ts`
+- `npx tsc --noEmit --pretty false`
+- `npx eslint src/storage_manager/mcp/proxyMcpServer.ts src/storage_manager/profileManager.ts`
 
 ## Results
 
@@ -93,6 +95,8 @@
 - `2026-05-03`: `npx eslint src/storage_manager/backup.ts src/storage_manager/backup.test.ts` — passed
 - `2026-05-03`: `npx jest src/storage_manager/commandRegistration.test.ts --runInBand` — passed (`1` suite, `1` test)
 - `2026-05-03`: `npx eslint src/storage_manager/commandRegistration.test.ts` — passed
+- `2026-05-03`: `npx tsc --noEmit --pretty false` after storage-manager cleanup slice — passed
+- `2026-05-03`: `npx eslint src/storage_manager/mcp/proxyMcpServer.ts src/storage_manager/profileManager.ts` — passed with warnings only, no errors
 
 ## Remaining caveats
 

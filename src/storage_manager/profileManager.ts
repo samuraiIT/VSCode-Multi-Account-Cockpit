@@ -1,9 +1,14 @@
 
 import * as vscode from 'vscode';
+import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { LocalizationManager } from './l10n/localizationManager';
+
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 export interface Profile {
     name: string;
@@ -24,6 +29,26 @@ export interface ProfileQuotaCache {
         timeUntilReset?: number;
     }[];
 }
+
+type ProfilePickerProfile = Profile | { name: 'DELETE_ACTION' } | null;
+
+type ProfilePickerItem = vscode.QuickPickItem & {
+    profile?: ProfilePickerProfile;
+    isAction?: boolean;
+};
+
+type SnapshotModel = {
+    modelId: string;
+    label: string;
+    remainingPercentage?: number;
+    isExhausted?: boolean;
+    resetTime?: string | number | Date;
+    timeUntilReset?: number;
+};
+
+type SnapshotLike = {
+    models?: SnapshotModel[];
+};
 
 export class ProfileManager {
     private configDir: string;
@@ -65,7 +90,7 @@ export class ProfileManager {
 
     private async detectConfigDir(): Promise<string | null> {
         // Cross-platform base directories (fixes #9 — macOS/Linux support)
-        let configBases: string[] = [];
+        const configBases: string[] = [];
 
         if (process.platform === 'win32') {
             const roaming = process.env.APPDATA;
@@ -84,7 +109,7 @@ export class ProfileManager {
             configBases.push(path.join(os.homedir(), '.config'));
         }
 
-        if (configBases.length === 0) return null;
+        if (configBases.length === 0) {return null;}
 
         const candidates: string[] = [];
 
@@ -175,7 +200,7 @@ export class ProfileManager {
 
                         // Check full path to avoid re-adding the root itself if it was already added
                         const fullPath = path.join(storageRoot, d);
-                        if (candidates.includes(fullPath)) continue;
+                        if (candidates.includes(fullPath)) {continue;}
 
                         // Look for Antigravity or Codeium target extensions
                         if (lowerName.includes('antigravity') || lowerName.includes('codeium')) {
@@ -196,10 +221,10 @@ export class ProfileManager {
                 const subdirs = fs.readdirSync(parentStorageDir);
                 for (const d of subdirs) {
                     const lowerName = d.toLowerCase();
-                    if (lowerName.includes('antigravity-storage-manager')) continue;
+                    if (lowerName.includes('antigravity-storage-manager')) {continue;}
 
                     const fullPath = path.join(parentStorageDir, d);
-                    if (candidates.includes(fullPath)) continue;
+                    if (candidates.includes(fullPath)) {continue;}
 
                     if (lowerName.includes('antigravity') || lowerName.includes('codeium')) {
                         candidates.push(fullPath);
@@ -218,15 +243,15 @@ export class ProfileManager {
 
         const validCandidates = candidates
             .filter(p => {
-                if (!fs.existsSync(p) || !fs.statSync(p).isDirectory()) return false;
+                if (!fs.existsSync(p) || !fs.statSync(p).isDirectory()) {return false;}
                 const pLower = p.toLowerCase();
 
                 // Exclude self (Context Storage)
-                if (pLower === myStoragePathLower) return false;
+                if (pLower === myStoragePathLower) {return false;}
 
                 // Exclude self (Extension Install Dir - if somehow checking there)
                 // Filter out anything that looks like THIS extension
-                if (pLower.includes('antigravity-storage-manager')) return false;
+                if (pLower.includes('antigravity-storage-manager')) {return false;}
 
                 return true;
             })
@@ -276,8 +301,8 @@ export class ProfileManager {
             if (fs.existsSync(profilesDir)) {
                 files = fs.readdirSync(profilesDir);
             }
-        } catch (e: any) {
-            files = [`Error: ${e.message}`];
+        } catch (error: unknown) {
+            files = [`Error: ${getErrorMessage(error)}`];
         }
 
         const msg = `Config Dir: ${dbg || 'NOT FOUND'}\nProfiles Dir: ${profilesDir}\nLoaded Profiles: ${profiles.map(p => p.name).join(', ')}\nFile Listing: ${files.join(', ')}`;
@@ -286,7 +311,7 @@ export class ProfileManager {
     }
 
     public async saveProfile(name?: string): Promise<void> {
-        if (!this.configDir) await this.initialize();
+        if (!this.configDir) {await this.initialize();}
         if (!this.configDir) {
             vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Could not locate Antigravity configuration directory to back up.'));
             throw new Error('Config directory not found');
@@ -300,7 +325,7 @@ export class ProfileManager {
             });
         }
 
-        if (!name) return; // User cancelled
+        if (!name) {return;} // User cancelled
 
         // Create profiles directory in OUR extension's storage (already done in constructor, but good to ensure)
         const profilesDir = this.getProfilesDir();
@@ -321,7 +346,7 @@ export class ProfileManager {
                 LocalizationManager.getInstance().t('Yes'),
                 LocalizationManager.getInstance().t('No')
             );
-            if (overwrite !== LocalizationManager.getInstance().t('Yes')) return; // User chose not to overwrite
+            if (overwrite !== LocalizationManager.getInstance().t('Yes')) {return;} // User chose not to overwrite
         }
 
         // Remove existing if any (fresh snapshot)
@@ -333,8 +358,8 @@ export class ProfileManager {
         // Backup ALL files recursively
         try {
             this.copyRecursiveSync(this.configDir, profilePath);
-        } catch (e: any) {
-            throw new Error('Failed to backup configuration: ' + e.message);
+        } catch (error: unknown) {
+            throw new Error(`Failed to backup configuration: ${getErrorMessage(error)}`);
         }
 
         // 2. Determine Antigravity Email Association
@@ -402,16 +427,16 @@ export class ProfileManager {
                                         // which is exactly what we want.
                                         this.copyRecursiveSync(this.configDir, profilePath);
                                         console.log('Re-synced profile backup with new authentication tokens.');
-                                    } catch (e: any) {
-                                        console.error('Failed to re-sync profile after auth:', e);
+                                    } catch (error: unknown) {
+                                        console.error('Failed to re-sync profile after auth:', error);
                                         vscode.window.showWarningMessage(LocalizationManager.getInstance().t('Warning: New tokens might not be saved to profile backup.'));
                                     }
                                 } else {
                                     vscode.window.showWarningMessage(LocalizationManager.getInstance().t('Authentication failed or cancelled.'));
                                     antigravityEmail = undefined;
                                 }
-                            } catch (e: any) {
-                                vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Failed to add account: {0}', e.message));
+                            } catch (error: unknown) {
+                                vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Failed to add account: {0}', getErrorMessage(error)));
                                 antigravityEmail = undefined;
                             }
                         } else {
@@ -461,23 +486,23 @@ export class ProfileManager {
         return profiles.find(p => p.antigravityEmail === email);
     }
 
-    public async updateProfileQuota(profileName: string, snapshot: any): Promise<void> {
-        if (!snapshot || !snapshot.models) return;
+    public async updateProfileQuota(profileName: string, snapshot: SnapshotLike): Promise<void> {
+        if (!snapshot || !snapshot.models) {return;}
 
         const profiles = await this.loadProfiles();
         const profileIndex = profiles.findIndex(p => p.name === profileName);
-        if (profileIndex === -1) return;
+        if (profileIndex === -1) {return;}
 
         const profile = profiles[profileIndex];
 
         // Filter and map models for cache
-        const models = snapshot.models.map((m: any) => ({
-            modelId: m.modelId,
-            label: m.label,
-            remainingPercentage: m.remainingPercentage,
-            isExhausted: m.isExhausted,
-            resetTime: m.resetTime ? new Date(m.resetTime).toISOString() : undefined,
-            timeUntilReset: m.timeUntilReset
+        const models = snapshot.models.map((model) => ({
+            modelId: model.modelId,
+            label: model.label,
+            remainingPercentage: model.remainingPercentage,
+            isExhausted: model.isExhausted,
+            resetTime: model.resetTime ? new Date(model.resetTime).toISOString() : undefined,
+            timeUntilReset: model.timeUntilReset
         }));
 
         profile.quotaCache = {
@@ -490,7 +515,7 @@ export class ProfileManager {
     }
 
     public async switchProfile(name: string): Promise<void> {
-        if (!this.configDir) await this.initialize();
+        if (!this.configDir) {await this.initialize();}
         if (!this.configDir) {
             vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Could not locate Antigravity configuration directory.'));
             return;
@@ -498,14 +523,14 @@ export class ProfileManager {
 
         const profiles = await this.loadProfiles();
         const profile = profiles.find(p => p.name === name);
-        if (!profile) throw new Error(`Profile "${name}" not found.`);
+        if (!profile) {throw new Error(`Profile "${name}" not found.`);}
 
         // Restore files (overwrite existing)
         try {
             this.copyRecursiveSync(profile.filePath, this.configDir);
-        } catch (e: any) {
-            console.error(`Failed to restore profile:`, e);
-            vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Failed to restore profile: {0}', e.message));
+        } catch (error: unknown) {
+            console.error('Failed to restore profile:', error);
+            vscode.window.showErrorMessage(LocalizationManager.getInstance().t('Failed to restore profile: {0}', getErrorMessage(error)));
             return;
         }
 
@@ -530,8 +555,8 @@ export class ProfileManager {
                 await this.killAntigravityProcess();
                 // Wait for process release
                 await new Promise(r => setTimeout(r, 2000));
-            } catch (e: any) {
-                console.warn('Failed to kill Antigravity process:', e);
+            } catch (error: unknown) {
+                console.warn('Failed to kill Antigravity process:', error);
             }
 
             vscode.commands.executeCommand('workbench.action.reloadWindow');
@@ -551,8 +576,7 @@ export class ProfileManager {
                 cmd = 'pkill -f language_server || true';
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            require('child_process').exec(cmd, (err: any) => {
+            childProcess.exec(cmd, (err: Error | null) => {
                 // Ignore errors (process might not be running)
                 if (err) {
                     console.log('Antigravity process kill result:', err.message);
@@ -572,11 +596,8 @@ export class ProfileManager {
         }
 
         console.log(`Starting Antigravity from: ${exePath}`);
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { spawn } = require('child_process');
-
         // Spawn detached to let it run independently
-        const child = spawn(exePath, [], {
+        const child = childProcess.spawn(exePath, [], {
             detached: true,
             stdio: 'ignore'
         });
@@ -601,7 +622,7 @@ export class ProfileManager {
             }
 
             for (const p of candidates) {
-                if (fs.existsSync(p)) return p;
+                if (fs.existsSync(p)) {return p;}
             }
         }
         // Add macOS/Linux logic if needed later
@@ -635,19 +656,19 @@ export class ProfileManager {
             }
             fs.readdirSync(src).forEach((childItemName) => {
                 // Skip 'profiles' folder if we are copying from our own storage root (generic safety)
-                if (childItemName === 'profiles') return;
-                if (shouldIgnore(childItemName)) return;
+                if (childItemName === 'profiles') {return;}
+                if (shouldIgnore(childItemName)) {return;}
 
                 this.copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
             });
         } else {
             try {
                 fs.copyFileSync(src, dest);
-            } catch (e: any) {
-                if (e.code === 'EBUSY' || e.code === 'EPERM') {
+            } catch (error: unknown) {
+                if (error && typeof error === 'object' && 'code' in error && (error.code === 'EBUSY' || error.code === 'EPERM')) {
                     console.warn(`Skipping locked file: ${src}`);
                 } else {
-                    throw e;
+                    throw error;
                 }
             }
         }
@@ -657,7 +678,7 @@ export class ProfileManager {
         let profiles: Profile[] = [];
         try {
             const str = await this.context.secrets.get('antigravity.profiles');
-            if (str) profiles = JSON.parse(str);
+            if (str) {profiles = JSON.parse(str);}
         } catch {
             console.warn('Failed to parse profiles secret');
         }
@@ -745,13 +766,13 @@ export class ProfileManager {
         // Sort by last used
         profiles.sort((a, b) => b.lastUsed - a.lastUsed);
 
-        const items: (vscode.QuickPickItem & { profile?: Profile, isAction?: boolean })[] = profiles.map(p => {
+        const items: ProfilePickerItem[] = profiles.map(p => {
             const description = LocalizationManager.getInstance().formatDateTime(p.lastUsed);
             let detail = '';
 
             if (p.quotaCache && p.quotaCache.models) {
                 const info = this.getProfileQuotaDetails(p);
-                if (info) detail = info;
+                if (info) {detail = info;}
             }
 
             return {
@@ -768,7 +789,7 @@ export class ProfileManager {
             label: `$(plus) ${lm.t('Save Current Profile')}`,
             description: lm.t('Save current authentication state as a new profile'),
             isAction: true,
-            profile: null as any // marker
+            profile: null,
         });
 
         if (items.length > 2) { // More than just the "Save" button
@@ -776,7 +797,7 @@ export class ProfileManager {
                 label: `$(trash) ${lm.t('Delete Profile')}`,
                 description: lm.t('Remove a saved profile'),
                 isAction: true,
-                profile: { name: 'DELETE_ACTION' } as any
+                profile: { name: 'DELETE_ACTION' },
             });
         }
 
@@ -843,7 +864,7 @@ export class ProfileManager {
             placeHolder: lm.t('Select to create new or overwrite existing profile')
         });
 
-        if (!selected) return;
+        if (!selected) {return;}
 
         let profileName: string | undefined;
 
@@ -870,14 +891,14 @@ export class ProfileManager {
             try {
                 await this.saveProfile(profileName);
                 vscode.window.showInformationMessage(lm.t('Profile "{0}" saved.', profileName));
-            } catch (e: any) {
-                vscode.window.showErrorMessage(lm.t('Failed to save profile: {0}', e.message));
+            } catch (error: unknown) {
+                vscode.window.showErrorMessage(lm.t('Failed to save profile: {0}', getErrorMessage(error)));
             }
         }
     }
 
     private getProfileQuotaDetails(p: Profile): string | undefined {
-        if (!p.quotaCache || !p.quotaCache.models) return undefined;
+        if (!p.quotaCache || !p.quotaCache.models) {return undefined;}
 
         const lm = LocalizationManager.getInstance();
         const config = vscode.workspace.getConfiguration('antigravity-storage-manager');
@@ -911,8 +932,8 @@ export class ProfileManager {
                         }
 
                         let icon = '$(check)';
-                        if (m.isExhausted || (m.remainingPercentage !== undefined && m.remainingPercentage === 0)) icon = '$(error)';
-                        else if (m.remainingPercentage !== undefined && m.remainingPercentage < 30) icon = '$(flame)';
+                        if (m.isExhausted || (m.remainingPercentage !== undefined && m.remainingPercentage === 0)) {icon = '$(error)';}
+                        else if (m.remainingPercentage !== undefined && m.remainingPercentage < 30) {icon = '$(flame)';}
 
                         status = `${icon} ${m.label}: ${pct}`;
 

@@ -19,6 +19,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { loadConfig, getProxyBaseUrl, isProxyRunning, McpConfig } from "./config";
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 // Load configuration
@@ -29,6 +30,17 @@ const server = new McpServer({
     name: "antigravity-proxy",
     version: "1.0.0",
 });
+
+type ToolRegistration = (...args: [string, string, unknown, unknown]) => unknown;
+
+class RetryableProxyRequestError extends Error {
+    constructor(public readonly originalError: unknown) {
+        super('Retryable proxy request failed');
+        this.name = 'RetryableProxyRequestError';
+    }
+}
+
+const registerTool = server.tool as unknown as ToolRegistration;
 
 // Static Model Registry
 
@@ -151,13 +163,6 @@ interface ModelsResponse {
     }>;
 }
 
-interface QuotaResponse {
-    remaining: number;
-    limit: number;
-    reset_at: string;
-    unit: string;
-}
-
 /**
  * Make an authenticated request to the proxy
  */
@@ -213,21 +218,21 @@ function getConfiguredProviders(): string[] {
         const providers: string[] = [];
 
         // Check for various provider configurations
-        if (content.match(/^github-copilot:/m)) providers.push('github-copilot');
-        if (content.includes('claude-api-key:')) providers.push('claude');
-        if (content.match(/^codex-api-key:/m)) providers.push('codex');
-        if (content.includes('vertex-api-key:')) providers.push('vertex');
-        if (content.match(/^\s+- name: ["']?z-ai["']?/m)) providers.push('z-ai');
-        if (content.includes('kiro:')) providers.push('kiro');
+        if (content.match(/^github-copilot:/m)) {providers.push('github-copilot');}
+        if (content.includes('claude-api-key:')) {providers.push('claude');}
+        if (content.match(/^codex-api-key:/m)) {providers.push('codex');}
+        if (content.includes('vertex-api-key:')) {providers.push('vertex');}
+        if (content.match(/^\s+- name: ["']?z-ai["']?/m)) {providers.push('z-ai');}
+        if (content.includes('kiro:')) {providers.push('kiro');}
         if (content.match(/provider:\s*["']?gemini["']?/) || content.match(/provider:\s*["']?aistudio["']?/)) {
             providers.push('gemini');
         }
 
         // Check for antigravity auth files
         const authDirMatch = content.match(/^auth-dir:\s*"?(.+?)"?\s*$/m);
-        let authDir = authDirMatch ? authDirMatch[1] : path.join(require('os').homedir(), '.cli-proxy-api'); // eslint-disable-line @typescript-eslint/no-require-imports
+        let authDir = authDirMatch ? authDirMatch[1] : path.join(os.homedir(), '.cli-proxy-api');
         if (authDir.startsWith('~')) {
-            authDir = path.join(require('os').homedir(), authDir.slice(1)); // eslint-disable-line @typescript-eslint/no-require-imports
+            authDir = path.join(os.homedir(), authDir.slice(1));
         }
         if (fs.existsSync(authDir)) {
             const files = fs.readdirSync(authDir);
@@ -353,12 +358,9 @@ type ChatCompletionParams = {
     temperature?: number;
 };
 
-// Using type assertion to avoid "Type instantiation is excessively deep" error
-// caused by complex generic inference in MCP SDK with nested Zod schemas
-// Using type assertion to avoid "Type instantiation is excessively deep" error
-// caused by complex generic inference in MCP SDK with nested Zod schemas
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-(server.tool as Function)(
+// Using a loose wrapper to avoid "Type instantiation is excessively deep"
+// caused by complex generic inference in MCP SDK with nested Zod schemas.
+registerTool(
     "chat_completion",
     "Send a chat completion request to an AI model through the Antigravity Proxy.",
     chatCompletionSchema,
@@ -411,11 +413,11 @@ type ChatCompletionParams = {
                 if (!userAgent) {
                     // Fallback to substring match
                     const modelLower = modelStr.toLowerCase();
-                    if (modelLower.includes('gemini') || modelLower.includes('aistudio')) userAgent = 'gemini-cli/1.0.0';
-                    else if (modelLower.includes('claude')) userAgent = 'claude-code/1.0.0';
-                    else if (modelLower.includes('codex')) userAgent = 'codex-cli/1.0.0';
-                    else if (modelLower.includes('copilot') || modelLower.includes('gpt')) userAgent = 'GitHubCopilotChat/0.26.7';
-                    else if (modelLower.includes('qwen')) userAgent = 'qwen-cli/1.0.0';
+                    if (modelLower.includes('gemini') || modelLower.includes('aistudio')) {userAgent = 'gemini-cli/1.0.0';}
+                    else if (modelLower.includes('claude')) {userAgent = 'claude-code/1.0.0';}
+                    else if (modelLower.includes('codex')) {userAgent = 'codex-cli/1.0.0';}
+                    else if (modelLower.includes('copilot') || modelLower.includes('gpt')) {userAgent = 'GitHubCopilotChat/0.26.7';}
+                    else if (modelLower.includes('qwen')) {userAgent = 'qwen-cli/1.0.0';}
                 }
 
                 let finalModel = modelStr;
@@ -441,8 +443,8 @@ type ChatCompletionParams = {
                     messages: messages as ChatMessage[],
                 };
 
-                if (max_tokens !== undefined) payload.max_tokens = max_tokens;
-                if (temperature !== undefined) payload.temperature = temperature;
+                if (max_tokens !== undefined) {payload.max_tokens = max_tokens;}
+                if (temperature !== undefined) {payload.temperature = temperature;}
 
                 try {
                     return await proxyRequest<ChatCompletionResponse>(
@@ -458,7 +460,7 @@ type ChatCompletionParams = {
                     // 404: Not Found (model not found)
                     // 400: Bad Request (invalid model param)
                     if (errorMsg.includes('502') || errorMsg.includes('404') || errorMsg.includes('400')) {
-                        throw { isRetryable: true, originalError: err };
+                        throw new RetryableProxyRequestError(err);
                     }
                     throw err;
                 }
@@ -468,8 +470,8 @@ type ChatCompletionParams = {
             let response: ChatCompletionResponse;
             try {
                 response = await executeRequest(model);
-            } catch (err: any) {
-                if (err.isRetryable) {
+            } catch (err: unknown) {
+                if (err instanceof RetryableProxyRequestError) {
                     // 2. Retry Logic
                     console.error(`Request failed with ${model}. Attempting to recover using Static Registry...`);
 
@@ -529,10 +531,9 @@ type ChatCompletionParams = {
  * Tool: get_quota
  * Get quota information for a specific provider
  */
-// Using type assertion to avoid "Type instantiation is excessively deep" error
-// Using type assertion to avoid "Type instantiation is excessively deep" error
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-(server.tool as Function)(
+// Using a loose wrapper to avoid "Type instantiation is excessively deep"
+// caused by complex generic inference in MCP SDK with nested Zod schemas.
+registerTool(
     "get_quota",
     "Get quota/usage information for a specific AI provider (antigravity, codex, or gemini-cli).",
     {
@@ -658,8 +659,8 @@ type ChatCompletionParams = {
                 let projectId = targetFile.project_id;
                 if (!projectId) {
                     const match = targetFile.name.match(/^gemini-(?:.+?)-(.+?)\.json$/);
-                    if (match && match[1]) projectId = match[1];
-                    else projectId = 'antigravity-sync-484813';
+                    if (match && match[1]) {projectId = match[1];}
+                    else {projectId = 'antigravity-sync-484813';}
                 }
                 payload = {
                     authIndex: String(authIndex),

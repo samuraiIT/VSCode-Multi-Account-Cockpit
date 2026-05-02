@@ -1,5 +1,13 @@
 # AI Change Log
 
+## 20260503-020600-storage-manager-cleanup
+
+- Split a focused cleanup slice out of the remaining storage-manager worktree.
+- Replaced local `require(...)` hot spots in MCP/profile modules with static imports.
+- Swapped the proxy MCP retry marker object for a typed `RetryableProxyRequestError`.
+- Added a lightweight `registerTool` wrapper to keep MCP tool registration readable while avoiding deep generic-instantiation issues.
+- Tightened several touched `profileManager` error paths to use `unknown`/message extraction instead of fresh `any`.
+
 ## 20260503-015700-command-registration-guard
 
 - Committed the previously untracked storage-manager command registration guard test.

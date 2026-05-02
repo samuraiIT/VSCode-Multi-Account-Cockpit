@@ -1,5 +1,20 @@
 # Versions
 
+## 20260503-020600-storage-manager-cleanup
+
+- Base commit: `0340ece`
+- Status: `completed`
+- Scope:
+  - isolated typed cleanup for storage-manager MCP/profile modules
+  - removed local `require(...)` hot spots in touched paths
+  - replaced ad-hoc retry marker objects with a typed retry error
+- Changed source files:
+  - `src/storage_manager/mcp/proxyMcpServer.ts`
+  - `src/storage_manager/profileManager.ts`
+- Backup:
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-020600-storage-manager-cleanup/changed-files.patch`
+  - `docs/ai/VSCode-Multi-Account-Cockpit/backups/20260503-020600-storage-manager-cleanup/rollback.md`
+
 ## 20260503-015700-command-registration-guard
 
 - Base commit: `00a7565`
