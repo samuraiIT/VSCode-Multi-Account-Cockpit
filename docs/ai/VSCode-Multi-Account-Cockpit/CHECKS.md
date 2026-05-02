@@ -18,6 +18,7 @@
 - `npx eslint src/services/importService.ts src/storage_manager/localStorage.ts src/storage_manager/telegram/telegramService.ts`
 - `npx tsc --noEmit --pretty false` (after `tsconfig.json` scope fix)
 - `npx eslint src/shared/cloudcode_base.ts src/storage_manager/googleDrive.ts src/storage_manager/sync.ts`
+- `npx tsc --noEmit --pretty false` (after source type sync)
 
 ## Results
 
@@ -62,6 +63,7 @@
   - MCP autostart setting bridge consistency
 - `2026-05-03`: `npx tsc --noEmit --pretty false` — blocked by pre-existing project config issue: default include still pulls `docs/ai/**/files-before/*.ts` into the TypeScript program outside `rootDir`
 - `2026-05-03`: `tsconfig.json` updated to compile only `src/**/*.ts`; this removed the false-positive `docs/ai/**` compile noise and exposed the remaining real project type errors
+- `2026-05-03`: synchronized source types across `reactor`, `message_controller`, `storage_manager/index`, `shared/types`, and `auto_trigger/types`
 - `2026-05-03`: targeted ESLint on security-hardening files — passed with warnings only, no errors
 - `2026-05-03`: manual sink/source review completed for:
   - OAuth callback state validation and listener binding
@@ -78,6 +80,7 @@
   - Cloud Code base URL override allowlisting before bearer-token requests
   - root-bound local path resolution for conversation file opens
 - `2026-05-03`: `npx tsc --noEmit --pretty false` after scope fix — still fails on pre-existing repository type errors in `src/**` and some dependency/lib typing gaps; no new hard failures were introduced by the security hardening wave
+- `2026-05-03`: `npx tsc --noEmit --pretty false` after targeted type fixes — passed
 
 ## Remaining caveats
 
@@ -86,4 +89,4 @@
 - Proxy/MCP terminal startup was verified at build/integration level; interactive end-to-end launch still depends on the local proxy binary/config present on the user machine.
 - Repo-wide warning-only lint debt still exists in legacy files (`indent`, `comma-dangle`, `quotes`, `@typescript-eslint/no-explicit-any`, and similar style-level rules), but it does not currently block `.vsix` packaging.
 - TypeScript no-emit verification is currently noisy for reasons unrelated to this fix wave until `tsconfig` excludes `docs/ai/**/backups/**` snapshots from compilation inputs.
-- TypeScript verification is now limited to real source inputs, but the repository still has unrelated type debt in `src/**` plus missing web/lib typing expectations from current dependencies.
+- TypeScript verification is now scoped and passing for the current repository state.
