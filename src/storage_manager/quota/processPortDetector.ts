@@ -1,0 +1,261 @@
+
+import * as vscode from 'vscode';
+import { exec, execFile } from 'child_process';
+import { promisify } from 'util';
+import * as https from 'https';
+import { PlatformDetector } from './platformDetector';
+import { IPlatformStrategy } from './types';
+import { versionInfo } from './versionInfo';
+import { LocalizationManager } from '../l10n/localizationManager';
+
+const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+export interface AntigravityProcessInfo {
+    extensionPort: number;
+    connectPort: number;
+    csrfToken: string;
+}
+
+export class ProcessPortDetector {
+    private platformDetector: PlatformDetector;
+    private platformStrategy: IPlatformStrategy;
+    private processName: string;
+    private processNames: string[];
+
+    constructor() {
+        this.platformDetector = new PlatformDetector();
+        this.platformStrategy = this.platformDetector.getStrategy();
+        this.processName = this.platformDetector.getProcessName();
+        this.processNames = this.platformDetector.getProcessNames();
+    }
+
+    async detectProcessInfo(maxRetries: number = 3, retryDelay: number = 2000): Promise<AntigravityProcessInfo | null> {
+        const platformName = this.platformDetector.getPlatformName();
+        let fallbackUsed = false; // Track if we already tried fallback to prevent infinite loop
+
+        console.log('PortDetector', `Starting port detection on ${platformName}, processName=${this.processName}`);
+
+        if (platformName === 'Windows') {
+            const windowsStrategy = this.platformStrategy as any;
+            const mode = windowsStrategy.isUsingPowerShell?.() ? 'PowerShell' : 'WMIC';
+            console.log('PortDetector', `Windows detection mode: ${mode}`);
+        }
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log('PortDetector', `Attempt ${attempt}/${maxRetries}: Detecting Antigravity process...`);
+
+                let stdout: string;
+                const parts = this.platformStrategy.getProcessListCommandParts?.(this.processName);
+                if (parts) {
+                    // Direct call via execFile — bypasses cmd.exe, no quoting issues
+                    const result = await execFileAsync(parts.file, parts.args, { timeout: 15000 });
+                    stdout = result.stdout;
+                } else {
+                    const command = this.platformStrategy.getProcessListCommand(this.processName);
+                    const result = await execAsync(command, { timeout: 15000 });
+                    stdout = result.stdout;
+                }
+
+                console.log('PortDetector', `Process list stdout (${stdout.length} chars): ${stdout.substring(0, 500)}`);
+
+                let processInfo = this.platformStrategy.parseProcessInfo(stdout);
+
+                // Fallback: try alternative process names (fixes #12 — ARM64 Windows)
+                if (!processInfo && this.processNames.length > 1) {
+                    for (const altName of this.processNames) {
+                        if (altName === this.processName) continue;
+                        console.log('PortDetector', `Primary process '${this.processName}' not found, trying '${altName}'...`);
+                        try {
+                            let altStdout: string;
+                            const altParts = this.platformStrategy.getProcessListCommandParts?.(altName);
+                            if (altParts) {
+                                const altResult = await execFileAsync(altParts.file, altParts.args, { timeout: 15000 });
+                                altStdout = altResult.stdout;
+                            } else {
+                                const altCommand = this.platformStrategy.getProcessListCommand(altName);
+                                const altResult = await execAsync(altCommand, { timeout: 15000 });
+                                altStdout = altResult.stdout;
+                            }
+                            processInfo = this.platformStrategy.parseProcessInfo(altStdout);
+                            if (processInfo) {
+                                console.log('PortDetector', `Found process using fallback name '${altName}'`);
+                                break;
+                            }
+                        } catch {
+                            // Continue to next alternative
+                        }
+                    }
+                }
+
+                if (!processInfo) {
+                    throw new Error('language_server process not found');
+                }
+
+                const { pid, extensionPort, csrfToken } = processInfo;
+
+                if (!csrfToken) {
+                    console.warn('PortDetector', `Attempt ${attempt}: CSRF token missing`);
+                    throw new Error('CSRF token not found in process arguments');
+                }
+
+                console.log('PortDetector', `Found process: PID=${pid}, extensionPort=${extensionPort || 'N/A'}`);
+
+                const listeningPorts = await this.getProcessListeningPorts(pid);
+
+                if (listeningPorts.length === 0) {
+                    throw new Error('Process is not listening on any ports');
+                }
+
+                console.log('PortDetector', `Found ${listeningPorts.length} listening ports: ${listeningPorts.join(', ')}`);
+
+                const connectPort = await this.findWorkingPort(listeningPorts, csrfToken);
+
+                if (!connectPort) {
+                    throw new Error('Unable to find a working API port');
+                }
+
+                console.log('PortDetector', `Detection succeeded: connectPort=${connectPort}, extensionPort=${extensionPort}`);
+
+                return { extensionPort, connectPort, csrfToken };
+
+            } catch (error: any) {
+                const errorMsg = error?.message || String(error);
+                if (attempt >= maxRetries) {
+                    // Show error to user only on final attempt
+                    const lm = LocalizationManager.getInstance();
+                    vscode.window.showErrorMessage(lm.t('PortDetector: Attempt {0} failed ({1})', attempt, errorMsg));
+                } else {
+                    console.warn('PortDetector', `Attempt ${attempt}/${maxRetries} failed: ${errorMsg}`);
+                }
+
+                // Only switch PS↔WMIC on actual command failure, NOT on 'process not found'
+                if (errorMsg.includes('Command failed') || errorMsg.includes('unavailable')) {
+                    if (this.platformDetector.getPlatformName() === 'Windows' && !fallbackUsed) {
+                        const windowsStrategy = this.platformStrategy as any;
+                        const isUsingPowerShell = windowsStrategy.isUsingPowerShell?.();
+
+                        if (windowsStrategy.setUsePowerShell) {
+                            // Toggle between PowerShell and WMIC
+                            if (isUsingPowerShell) {
+                                console.warn('PortDetector', 'PowerShell command failed. Switching to WMIC mode and retrying...');
+                                windowsStrategy.setUsePowerShell(false);
+                            } else {
+                                console.warn('PortDetector', 'WMIC command is unavailable. Switching to PowerShell mode and retrying...');
+                                windowsStrategy.setUsePowerShell(true);
+                            }
+                            fallbackUsed = true;
+                            attempt--;
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+        }
+
+        // Windows Fallback Logic if loop finishes without success but maybe logic required it within loop?
+        // The previous logic had fallback inside the catch block helper.
+        // If we are here, we failed all retries.
+
+        return null;
+    }
+
+    private async getProcessListeningPorts(pid: number): Promise<number[]> {
+        try {
+            await this.platformStrategy.ensurePortCommandAvailable();
+
+            const command = this.platformStrategy.getPortListCommand(pid);
+            let stdout = '';
+
+            try {
+                const result = await execAsync(command, { timeout: 3000 });
+                stdout = result.stdout;
+            } catch (error) {
+                // Try fallback if available
+                if (this.platformStrategy.getFallbackPortListCommand) {
+                    console.warn('PortDetector', `Primary command failed, trying fallback... (${error})`);
+                    const fallbackCmd = this.platformStrategy.getFallbackPortListCommand(pid);
+                    const result = await execAsync(fallbackCmd, { timeout: 3000 });
+                    stdout = result.stdout;
+                } else {
+                    throw error;
+                }
+            }
+
+            const ports = this.platformStrategy.parseListeningPorts(stdout, pid);
+            return ports;
+        } catch (error: any) {
+            console.warn('PortDetector', `Failed to fetch listening ports: ${error.message}`);
+            return [];
+        }
+    }
+
+    private async findWorkingPort(ports: number[], csrfToken: string): Promise<number | null> {
+        for (const port of ports) {
+            const isWorking = await this.testPortConnectivity(port, csrfToken);
+            if (isWorking) {
+                return port;
+            }
+        }
+        return null;
+    }
+
+    private async testPortConnectivity(port: number, csrfToken: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            const requestBody = JSON.stringify({
+                context: {
+                    properties: {
+                        devMode: "false",
+                        extensionVersion: versionInfo.getExtensionVersion(),
+                        hasAnthropicModelAccess: "true",
+                        ide: "antigravity",
+                        ideVersion: versionInfo.getIdeVersion(),
+                        installationId: "test-detection",
+                        language: "UNSPECIFIED",
+                        os: versionInfo.getOs(),
+                        requestedModelId: "MODEL_UNSPECIFIED"
+                    }
+                }
+            });
+
+            const options = {
+                hostname: '127.0.0.1',
+                port: port,
+                path: '/exa.language_server_pb.LanguageServerService/GetUnleashData',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(requestBody),
+                    'Connect-Protocol-Version': '1',
+                    'X-Codeium-Csrf-Token': csrfToken
+                },
+                rejectUnauthorized: false,
+                timeout: 2000
+            };
+
+            const req = https.request(options, (res) => {
+                const success = res.statusCode === 200;
+                res.resume();
+                resolve(success);
+            });
+
+            req.on('error', (_err) => {
+                // logger.debug('ProcessPortDetector', `Port ${port} connection error: ${err.code || err.message}`);
+                resolve(false);
+            });
+
+            req.on('timeout', () => {
+                req.destroy();
+                resolve(false);
+            });
+
+            req.write(requestBody);
+            req.end();
+        });
+    }
+}
