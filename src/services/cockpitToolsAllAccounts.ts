@@ -9,9 +9,7 @@ import * as path from 'path';
 import { getCockpitToolsSharedDir } from '../shared/antigravity_paths';
 import { logger } from '../shared/log_service';
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface CockpitAccount {
     id: string;
@@ -46,9 +44,7 @@ export interface AllCockpitAccountsSnapshot {
     loadedAt: number;
 }
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 interface GenericIndex {
     version?: string;
@@ -76,9 +72,7 @@ function numOrUndef(val: unknown): number | undefined {
     return typeof val === 'number' ? val : undefined;
 }
 
-// ---------------------------------------------------------------------------
 // Per-provider readers
-// ---------------------------------------------------------------------------
 
 function readAntigravitySection(sharedDir: string): CockpitProviderSection {
     const index = readIndexFile(path.join(sharedDir, 'accounts.json'));
@@ -137,9 +131,7 @@ function readGitHubCopilotSection(sharedDir: string): CockpitProviderSection {
     return { provider: 'github_copilot', displayName: 'GitHub Copilot', icon: '🐙', accounts, currentAccountId: currentId };
 }
 
-// ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
 
 /**
  * Reads all Cockpit Tools account files and returns a unified snapshot.

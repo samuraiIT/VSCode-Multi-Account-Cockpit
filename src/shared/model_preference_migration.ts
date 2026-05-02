@@ -1,6 +1,6 @@
 /**
- * 模型偏好迁移工具
- * 负责将已下线/废弃模型 ID 或旧标签映射到当前可用模型。
+ *
+ *
  */
 
 export interface ModelPreferenceMigrationSummary {
@@ -23,8 +23,8 @@ export interface ModelPreferenceNormalizationResult<T extends ModelPreferenceSta
     summary: ModelPreferenceMigrationSummary;
 }
 
-// 插件内部实际用于过滤/置顶/排序的模型 ID（Authorized response 中 info.model）。
-// 覆盖旧模型 -> 新模型 4 个替代关系（Gemini 3 Pro -> 3.1 Pro，Claude 4.5 -> 4.6）。
+
+
 export const DEPRECATED_MODEL_ID_REPLACEMENTS: Record<string, string> = {
     MODEL_PLACEHOLDER_M7: 'MODEL_PLACEHOLDER_M36', // Gemini 3 Pro (Low) -> Gemini 3.1 Pro (Low)
     MODEL_PLACEHOLDER_M8: 'MODEL_PLACEHOLDER_M37', // Gemini 3 Pro (High) -> Gemini 3.1 Pro (High)
@@ -33,7 +33,7 @@ export const DEPRECATED_MODEL_ID_REPLACEMENTS: Record<string, string> = {
     MODEL_PLACEHOLDER_M12: 'MODEL_PLACEHOLDER_M26', // Claude Opus 4.5 (Thinking) -> Claude Opus 4.6 (Thinking)
 };
 
-// 上游 catalog key（非插件配置主路径，但保留用于调试/兼容扩展）。
+
 export const DEPRECATED_MODEL_KEY_REPLACEMENTS: Record<string, string> = {
     'gemini-3-pro-high': 'gemini-3.1-pro-high',
     'gemini-3-pro-low': 'gemini-3.1-pro-low',
@@ -42,7 +42,7 @@ export const DEPRECATED_MODEL_KEY_REPLACEMENTS: Record<string, string> = {
     'claude-opus-4-5-thinking': 'claude-opus-4-6-thinking',
 };
 
-// pinnedModels 历史上理论上可能存 label，因此补一层标签映射兜底（仅用于数组值，不用于对象 key）。
+
 export const DEPRECATED_MODEL_LABEL_REPLACEMENTS: Record<string, string> = {
     'Gemini 3 Pro (High)': 'Gemini 3.1 Pro (High)',
     'Gemini 3 Pro (Low)': 'Gemini 3.1 Pro (Low)',

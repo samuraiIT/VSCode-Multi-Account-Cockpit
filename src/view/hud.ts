@@ -1,6 +1,6 @@
 /**
- * Antigravity Cockpit - HUD 视图
- * 负责创建和管理 Webview Dashboard
+ * Antigravity Cockpit - HUD
+ *
  */
 
 import * as vscode from 'vscode';
@@ -15,8 +15,8 @@ import { AccountsRefreshService } from '../services/accountsRefreshService';
 import { cockpitToolsWs } from '../services/cockpitToolsWs';
 
 /**
- * CockpitHUD 类
- * 管理 Webview 面板的创建、更新和销毁
+ * CockpitHUD
+ *
  */
 export class CockpitHUD {
     public static readonly viewType = 'antigravity.cockpit';
@@ -45,30 +45,29 @@ export class CockpitHUD {
     }
 
     /**
-     * 注册 Webview Panel Serializer
-     * 用于在插件重载后恢复 panel 引用
+     *
+     *
      */
     public registerSerializer(): vscode.Disposable {
         return vscode.window.registerWebviewPanelSerializer(CockpitHUD.viewType, {
             deserializeWebviewPanel: async (webviewPanel: vscode.WebviewPanel, _state: unknown) => {
                 logger.info('[CockpitHUD] Restoring webview panel after reload');
                 
-                // 如果已经有一个 panel，关闭旧的
+
                 if (this.panel) {
                     logger.info('[CockpitHUD] Disposing old panel before restoration');
                     this.panel.dispose();
                 }
                 
-                // 恢复引用
                 this.panel = webviewPanel;
 
-                // 重新设置 webview 内容和事件监听
+
                 webviewPanel.webview.options = {
                     enableScripts: true,
                     localResourceRoots: [this.extensionUri],
                 };
 
-                // 重新同步语言（确保跟随 VS Code 语言时生效）
+
                 i18n.applyLanguageSetting(configService.getConfig().language);
                 webviewPanel.webview.html = this.generateHtml(webviewPanel.webview);
                 
@@ -88,7 +87,6 @@ export class CockpitHUD {
                     }
                 });
                 
-                // 恢复后刷新数据
                 if (this.cachedTelemetry) {
                     await this.refreshWithCachedData();
                 }
@@ -100,15 +98,15 @@ export class CockpitHUD {
     }
 
     /**
-     * 显示 HUD 面板
-     * @param initialTab 可选的初始标签页 (如 'auto-trigger')
-     * @returns 是否成功打开
+     *
+     * @param initialTab
+     * @returns
      */
     public async revealHud(initialTab?: string): Promise<boolean> {
         const localeChanged = i18n.applyLanguageSetting(configService.getConfig().language);
         const column = vscode.window.activeTextEditor?.viewColumn;
 
-        // 如果已经有 panel，直接显示
+
         if (this.panel) {
             const wasVisible = this.panel.visible;
             if (localeChanged) {
@@ -119,7 +117,6 @@ export class CockpitHUD {
             if (!wasVisible && this.panel.visible) {
                 this.notifyPanelRevealed(this.panel, 120);
             }
-            // 如果指定了初始标签页，发送消息切换
             if (initialTab) {
                 setTimeout(() => {
                     this.panel?.webview.postMessage({ type: 'switchTab', tab: initialTab });
@@ -128,8 +125,8 @@ export class CockpitHUD {
             return true;
         }
 
-        // 在创建新 panel 之前，先关闭所有旧版本的同类型 webview tabs
-        // 这解决了插件升级后出现多个 panel 的问题（旧版本没有 serializer）
+
+
         await this.closeOrphanTabs();
 
         try {
@@ -171,7 +168,6 @@ export class CockpitHUD {
                 this.notifyPanelRevealed(panel, 250);
             }
 
-            // 如果指定了初始标签页，延迟发送消息切换
             if (initialTab) {
                 setTimeout(() => {
                     panel.webview.postMessage({ type: 'switchTab', tab: initialTab });
@@ -196,8 +192,8 @@ export class CockpitHUD {
     }
 
     /**
-     * 关闭所有孤儿 webview tabs（旧版本遗留的 panel）
-     * 使用 tabGroups API 遍历所有打开的 tabs
+     *
+     *
      */
     private async closeOrphanTabs(): Promise<void> {
         try {
@@ -205,10 +201,10 @@ export class CockpitHUD {
             
             for (const tabGroup of vscode.window.tabGroups.all) {
                 for (const tab of tabGroup.tabs) {
-                    // 检查是否是 webview tab
+
                     if (tab.input instanceof vscode.TabInputWebview) {
                         const tabViewType = tab.input.viewType;
-                        // viewType 可能带有 extension id 前缀，使用 includes 匹配
+
                         if (tabViewType === CockpitHUD.viewType || 
                             tabViewType.includes(CockpitHUD.viewType) ||
                             tabViewType.endsWith(CockpitHUD.viewType)) {
@@ -223,12 +219,12 @@ export class CockpitHUD {
                 await vscode.window.tabGroups.close(tabsToClose);
             }
         } catch (error) {
-            // tabGroups API 可能在某些环境不可用，静默忽略
+
         }
     }
 
     /**
-     * 使用缓存数据刷新视图
+     *
      */
     private async refreshWithCachedData(): Promise<void> {
         if (!this.cachedTelemetry) {
@@ -267,21 +263,21 @@ export class CockpitHUD {
     }
 
     /**
-     * 从缓存恢复数据
+     *
      */
     public async rehydrate(): Promise<void> {
         await this.refreshWithCachedData();
     }
 
     /**
-     * 注册消息处理器
+     *
      */
     public onSignal(handler: (message: WebviewMessage) => void): void {
         this.messageRouter = handler;
     }
 
     /**
-     * 向 Webview 发送消息
+     *
      */
     public sendMessage(message: object): void {
         if (this.panel) {
@@ -290,14 +286,14 @@ export class CockpitHUD {
     }
 
     /**
-     * 检查 Webview 面板是否可见（用户当前正在查看）
+     *
      */
     public isVisible(): boolean {
         return this.panel?.visible === true;
     }
 
     /**
-     * 刷新视图
+     *
      */
     public refreshView(snapshot: QuotaSnapshot, config: DashboardConfig): void {
         this.cachedTelemetry = snapshot;
@@ -308,7 +304,7 @@ export class CockpitHUD {
                 this.panel.webview.html = this.generateHtml(this.panel.webview);
             }
 
-            // 转换数据为 Webview 兼容格式
+
             const webviewData = this.convertToWebviewFormat(snapshot);
 
             this.panel.webview.postMessage({
@@ -320,7 +316,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 转换数据格式（驼峰转下划线，兼容 Webview JS）
+     *
      */
     private convertToWebviewFormat(snapshot: QuotaSnapshot): object {
         return {
@@ -381,7 +377,6 @@ export class CockpitHUD {
                 isExhausted: m.isExhausted,
                 timeUntilResetFormatted: m.timeUntilResetFormatted,
                 resetTimeDisplay: m.resetTimeDisplay,
-                // 模型能力字段
                 supportsImages: m.supportsImages,
                 isRecommended: m.isRecommended,
                 tagTitle: m.tagTitle,
@@ -409,20 +404,19 @@ export class CockpitHUD {
                 models: g.models.map(m => ({
                     label: m.label,
                     modelId: m.modelId,
-                    // 模型能力字段
                     supportsImages: m.supportsImages,
                     isRecommended: m.isRecommended,
                     tagTitle: m.tagTitle,
                     supportedMimeTypes: m.supportedMimeTypes,
                 })),
             })),
-            // 本地账户邮箱（local 模式下使用远端 API 时）
+
             localAccountEmail: snapshot.localAccountEmail,
         };
     }
 
     /**
-     * 销毁面板
+     *
      */
     public dispose(): void {
         if (this.refreshSubscription) {
@@ -436,7 +430,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 获取 Webview 资源 URI
+     *
      */
     private getWebviewUri(webview: vscode.Webview, ...pathSegments: string[]): vscode.Uri {
         return webview.asWebviewUri(
@@ -445,7 +439,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 读取外部资源文件内容
+     *
      */
     private readResourceFile(...pathSegments: string[]): string {
         try {
@@ -458,7 +452,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 同步账号数据到 Webview
+     *
      */
     public syncAccountsToWebview(): void {
         if (!this.panel || !this.refreshService) {
@@ -513,7 +507,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 转换配额分组数据 (复用于 Webview)
+     *
      */
     private convertGroups(snapshot: QuotaSnapshot): Array<{
         groupId: string;
@@ -576,7 +570,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 获取账号总览国际化字符串
+     *
      */
     private getI18nStrings(): Record<string, string> {
         return {
@@ -620,8 +614,8 @@ export class CockpitHUD {
             'close': t('common.close') || 'Close',
             'viewList': t('accountsOverview.viewList') || 'List',
             'viewGrid': t('accountsOverview.viewGrid') || 'Grid',
-            'hideSensitive': t('profile.hideData') || '隐藏邮箱',
-            'showSensitive': t('profile.showData') || '显示邮箱',
+            'hideSensitive': t('profile.hideData') || 'Hide Email',
+            'showSensitive': t('profile.showData') || 'Show Email',
             'filterLabel': t('accountsOverview.filterLabel') || 'Filter',
             'filterAll': t('accountsOverview.filterAll') || 'All',
             'filterPro': t('accountsOverview.filterPro') || 'PRO',
@@ -634,60 +628,60 @@ export class CockpitHUD {
             'details': t('accountsOverview.details') || 'Details',
             'noQuotaData': t('accountsOverview.noQuotaData') || 'No quota data',
             // Add Account Modal
-            'authorize': t('accountsOverview.authorize') || '授权',
-            'import': t('accountsOverview.import') || '导入',
-            'oauthHint': t('accountsOverview.oauthHint') || '推荐使用浏览器完成 Google 授权',
-            'startOAuth': t('accountsOverview.startOAuth') || '开始 OAuth 授权',
-            'oauthContinue': t('accountsOverview.oauthContinue') || '我已授权，继续',
-            'oauthLinkLabel': t('accountsOverview.oauthLinkLabel') || '授权链接',
-            'oauthGenerating': t('accountsOverview.oauthGenerating') || '正在生成链接...',
-            'copy': t('common.copy') || '复制',
-            'oauthStarting': t('accountsOverview.oauthStarting') || '授权中...',
-            'oauthContinuing': t('accountsOverview.oauthContinuing') || '等待授权中...',
-            'copySuccess': t('accountsOverview.copySuccess') || '已复制',
-            'copyFailed': t('accountsOverview.copyFailed') || '复制失败',
-            'tokenHint': t('accountsOverview.tokenHint') || '输入 Refresh Token 直接添加账号',
-            'tokenPlaceholder': t('accountsOverview.tokenPlaceholder') || '粘贴 refresh_token 或 JSON 数组',
-            'tokenImportStart': t('accountsOverview.tokenImportStart') || '开始导入',
-            'tokenInvalid': t('accountsOverview.tokenInvalid') || 'refresh_token 无效',
-            'tokenImportProgress': t('accountsOverview.tokenImportProgress') || '正在导入 {current}/{total}',
-            'tokenImportSuccess': t('accountsOverview.tokenImportSuccess') || '导入成功',
-            'tokenImportPartial': t('accountsOverview.tokenImportPartial') || '部分导入完成',
-            'tokenImportFailed': t('accountsOverview.tokenImportFailed') || '导入失败',
-            'email': t('accountsOverview.email') || '邮箱',
-            'importHint': t('accountsOverview.importHint') || '从 JSON 文件或剪贴板导入账号',
-            'content': t('accountsOverview.content') || '内容',
-            'paste': t('accountsOverview.paste') || '粘贴',
-            'importFromExtension': t('accountsOverview.importFromExtension') || '从插件导入',
-            'importFromExtensionDesc': t('accountsOverview.importFromExtensionDesc') || '同步 Cockpit Tools 账号',
-            'importFromLocal': t('accountsOverview.importFromLocal') || '从本地数据库导入',
-            'importFromLocalDesc': t('accountsOverview.importFromLocalDesc') || '读取本机 Antigravity 登录账号',
-            'importFromTools': t('accountsOverview.importFromTools') || '导入 Antigravity Tools',
-            'importFromToolsDesc': t('accountsOverview.importFromToolsDesc') || '从 ~/.antigravity_tools/ 迁移历史账号',
-            'importNoAccounts': t('accountsOverview.importNoAccounts') || '未找到可导入账号',
-            'importSuccess': t('accountsOverview.importSuccess') || '导入成功',
-            'importFailed': t('accountsOverview.importFailed') || '导入失败',
-            'importLocalSuccess': t('accountsOverview.importLocalSuccess') || '导入完成',
-            'importProgress': t('accountsOverview.importProgress') || '正在导入 {current}/{total}: {email}',
-            'importingExtension': t('accountsOverview.importingExtension') || '导入中...',
-            'importingLocal': t('accountsOverview.importingLocal') || '导入中...',
-            'importingTools': t('accountsOverview.importingTools') || '导入中...',
-            'settings': t('accountsOverview.settings') || '设置',
-            'announcements': t('accountsOverview.announcements') || '公告',
-            'noAnnouncements': t('accountsOverview.noAnnouncements') || '暂无公告',
-            'autoRefresh': t('accountsOverview.autoRefresh') || '自动刷新',
-            'autoRefreshDesc': t('accountsOverview.autoRefreshDesc') || '打开页面时自动刷新配额',
-            'openDashboard': t('accountsOverview.openDashboard') || '打开配额监视器',
-            'openDashboardDesc': t('accountsOverview.openDashboardDesc') || '返回配额监视器主界面',
-            'go': t('accountsOverview.go') || '前往',
+            'authorize': t('accountsOverview.authorize') || 'Authorization',
+            'import': t('accountsOverview.import') || 'Import',
+            'oauthHint': t('accountsOverview.oauthHint') || 'Recommended: use browser for Google Authorization',
+            'startOAuth': t('accountsOverview.startOAuth') || 'Start OAuth Authorization',
+            'oauthContinue': t('accountsOverview.oauthContinue') || 'I have authorized, continue',
+            'oauthLinkLabel': t('accountsOverview.oauthLinkLabel') || 'Authorization link',
+            'oauthGenerating': t('accountsOverview.oauthGenerating') || 'Generating link...',
+            'copy': t('common.copy') || 'Copy',
+            'oauthStarting': t('accountsOverview.oauthStarting') || 'Authorizing...',
+            'oauthContinuing': t('accountsOverview.oauthContinuing') || 'Waiting for authorization...',
+            'copySuccess': t('accountsOverview.copySuccess') || 'Copied',
+            'copyFailed': t('accountsOverview.copyFailed') || 'Copy failed',
+            'tokenHint': t('accountsOverview.tokenHint') || 'Enter Refresh Token to add account directly',
+            'tokenPlaceholder': t('accountsOverview.tokenPlaceholder') || 'Paste refresh_token or JSON array',
+            'tokenImportStart': t('accountsOverview.tokenImportStart') || 'StartImport',
+            'tokenInvalid': t('accountsOverview.tokenInvalid') || 'refresh_token Invalid',
+            'tokenImportProgress': t('accountsOverview.tokenImportProgress') || 'In progressImport {current}/{total}',
+            'tokenImportSuccess': t('accountsOverview.tokenImportSuccess') || 'ImportSuccess',
+            'tokenImportPartial': t('accountsOverview.tokenImportPartial') || 'Partial import done',
+            'tokenImportFailed': t('accountsOverview.tokenImportFailed') || 'ImportFailed',
+            'email': t('accountsOverview.email') || 'Email',
+            'importHint': t('accountsOverview.importHint') || 'Import accounts from JSON file or clipboard',
+            'content': t('accountsOverview.content') || 'Content',
+            'paste': t('accountsOverview.paste') || 'Paste',
+            'importFromExtension': t('accountsOverview.importFromExtension') || 'Import from extension',
+            'importFromExtensionDesc': t('accountsOverview.importFromExtensionDesc') || 'Sync Cockpit Tools Account',
+            'importFromLocal': t('accountsOverview.importFromLocal') || 'Import from local database',
+            'importFromLocalDesc': t('accountsOverview.importFromLocalDesc') || 'Read local Antigravity login account',
+            'importFromTools': t('accountsOverview.importFromTools') || 'Import Antigravity Tools',
+            'importFromToolsDesc': t('accountsOverview.importFromToolsDesc') || 'Migrate history accounts from ~/.antigravity_tools/',
+            'importNoAccounts': t('accountsOverview.importNoAccounts') || 'No importable accounts found',
+            'importSuccess': t('accountsOverview.importSuccess') || 'ImportSuccess',
+            'importFailed': t('accountsOverview.importFailed') || 'ImportFailed',
+            'importLocalSuccess': t('accountsOverview.importLocalSuccess') || 'ImportDone',
+            'importProgress': t('accountsOverview.importProgress') || 'In progressImport {current}/{total}: {email}',
+            'importingExtension': t('accountsOverview.importingExtension') || 'Importing...',
+            'importingLocal': t('accountsOverview.importingLocal') || 'Importing...',
+            'importingTools': t('accountsOverview.importingTools') || 'Importing...',
+            'settings': t('accountsOverview.settings') || 'Settings',
+            'announcements': t('accountsOverview.announcements') || 'Announcements',
+            'noAnnouncements': t('accountsOverview.noAnnouncements') || 'No announcements',
+            'autoRefresh': t('accountsOverview.autoRefresh') || 'Auto Refresh',
+            'autoRefreshDesc': t('accountsOverview.autoRefreshDesc') || 'Auto-refresh quota when page opens',
+            'openDashboard': t('accountsOverview.openDashboard') || 'Open quota monitor',
+            'openDashboardDesc': t('accountsOverview.openDashboardDesc') || 'Return to quota monitor main view',
+            'go': t('accountsOverview.go') || 'Go',
         };
     }
 
     /**
-     * 生成 HTML 内容
+     *
      */
     private generateHtml(webview: vscode.Webview): string {
-        // 获取外部资源 URI
+
         const styleUri = this.getWebviewUri(webview, 'out', 'view', 'webview', 'dashboard.css');
         const accountsOverviewStyleUri = this.getWebviewUri(webview, 'out', 'view', 'webview', 'accounts_overview.css');
         const sharedModalStyleUri = this.getWebviewUri(webview, 'out', 'view', 'webview', 'shared_modals.css');
@@ -699,7 +693,6 @@ export class CockpitHUD {
         const accountsOverviewScriptUri = this.getWebviewUri(webview, 'out', 'view', 'webview', 'accounts_overview.js');
         const cockpitToolsScriptUri = this.getWebviewUri(webview, 'out', 'view', 'webview', 'cockpit_tools.js');
 
-        // 获取国际化文本
         const translations = i18n.getAllTranslations();
         const translationsJson = JSON.stringify(translations);
         const accountsOverviewI18n = this.getI18nStrings();
@@ -896,8 +889,8 @@ export class CockpitHUD {
                     </div>
 
                     <div class="toolbar-right">
-                        <button id="ao-toggle-privacy-btn" class="btn btn-secondary" title="${t('profile.hideData') || '隐藏邮箱'}" aria-label="${t('profile.hideData') || '隐藏邮箱'}">
-                            ${t('profile.hideData') || '隐藏邮箱'}
+                        <button id="ao-toggle-privacy-btn" class="btn btn-secondary" title="${t('profile.hideData') || 'Hide Email'}" aria-label="${t('profile.hideData') || 'Hide Email'}">
+                            ${t('profile.hideData') || 'Hide Email'}
                         </button>
                         <button id="ao-add-btn" class="btn btn-primary" title="${t('accountsOverview.addAccount')}" aria-label="${t('accountsOverview.addAccount')}">
                             ${t('accountsOverview.addAccount')}
@@ -1459,7 +1452,7 @@ export class CockpitHUD {
                 <button id="close-settings-btn" class="close-btn">×</button>
             </div>
             <div class="modal-body">
-                <!-- 语言设置 -->
+                <!-- Language settings -->
                 <div class="setting-item">
                     <label for="language-select">🌐 ${t('language.title') || 'Language'}</label>
                     <select id="language-select" class="setting-select">
@@ -1473,7 +1466,7 @@ export class CockpitHUD {
 
                 <!-- Display Mode and View Mode moved to bottom -->
 
-                <!-- 状态栏样式选择 -->
+                <!-- Status bar style selection -->
                 <div class="setting-item">
                     <label for="statusbar-format">📊 ${i18n.t('statusBarFormat.title')}</label>
                     <select id="statusbar-format" class="setting-select">
@@ -1516,7 +1509,7 @@ export class CockpitHUD {
 
                 <hr class="setting-divider">
 
-                <!-- 显示模式切换 -->
+                <!-- Display mode toggle -->
                 <div class="setting-item">
                     <label for="display-mode-select">🖥️ ${t('displayMode.title') || 'Display Mode'}</label>
                     <select id="display-mode-select" class="setting-select">
@@ -1652,7 +1645,6 @@ export class CockpitHUD {
     </footer>
 
     <script nonce="${nonce}">
-        // 注入国际化文本
         window.__i18n = ${translationsJson};
         window.__autoTriggerI18n = ${translationsJson};
         window.__accountsOverviewI18n = ${accountsOverviewI18nJson};
@@ -1667,7 +1659,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 生成随机 nonce
+     *
      */
     private generateNonce(): string {
         const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -1679,7 +1671,7 @@ export class CockpitHUD {
     }
 
     /**
-     * 生成语言选项 HTML
+     *
      */
     private generateLanguageOptions(): string {
         const locales = i18n.getSupportedLocales();
@@ -1690,5 +1682,4 @@ export class CockpitHUD {
     }
 }
 
-// 保持向后兼容的导出别名
 export { CockpitHUD as hud };

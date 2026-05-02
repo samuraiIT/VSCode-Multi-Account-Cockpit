@@ -24,9 +24,7 @@ import * as path from 'path';
 import { getCockpitToolsSharedDir } from '../shared/antigravity_paths';
 import { logger } from '../shared/log_service';
 
-// ---------------------------------------------------------------------------
 // Types matching the Cockpit Tools Rust model for Codex accounts
-// ---------------------------------------------------------------------------
 
 interface CodexTokens {
     id_token: string;
@@ -95,9 +93,7 @@ interface CpaFileFormat {
     expired?: string;
 }
 
-// ---------------------------------------------------------------------------
 // Public result type
-// ---------------------------------------------------------------------------
 
 export interface ImportResult {
     /** Number of accounts written for the first time */
@@ -110,9 +106,7 @@ export interface ImportResult {
     emails: string[];
 }
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 function nowSecs(): number {
     return Math.floor(Date.now() / 1000);
@@ -213,9 +207,7 @@ function parseJsonFile(filePath: string): { accounts: CodexAccountFull[]; error?
     return { accounts: [] };
 }
 
-// ---------------------------------------------------------------------------
 // Main export
-// ---------------------------------------------------------------------------
 
 /**
  * Import all recognised Codex account files from `importDir` into the shared

@@ -1,6 +1,6 @@
 /**
- * Cockpit Tools WebSocket 客户端
- * 用于与 antigravity-cockpit-tools 实时通信
+ * Cockpit Tools WebSocket
+ *
  */
 
 import { EventEmitter } from 'events';
@@ -10,18 +10,15 @@ import * as path from 'path';
 import { logger } from '../shared/log_service';
 import { getCockpitToolsSharedDir, isAntigravityWslRemote } from '../shared/antigravity_paths';
 
-/** 服务配置文件 */
 const SERVER_CONFIG_FILE = 'server.json';
 
-/** 默认 WebSocket 端口 */
 const DEFAULT_WS_PORT = 19528;
 
-const RECONNECT_INTERVAL = 5000; // 5秒重连间隔
-const RECONNECT_INTERVAL_MAX = 30000; // 最大重连间隔 30 秒
-const PING_INTERVAL = 30000; // 30秒心跳间隔
-const REQUEST_TIMEOUT = 10000; // 请求超时 10 秒
+const RECONNECT_INTERVAL = 5000;
+const RECONNECT_INTERVAL_MAX = 30000;
+const PING_INTERVAL = 30000;
+const REQUEST_TIMEOUT = 10000;
 
-/** 服务配置结构（与 Rust 端保持一致） */
 export interface ServerConfig {
     ws_port: number;
     version: string;
@@ -30,8 +27,8 @@ export interface ServerConfig {
 }
 
 /**
- * 读取服务配置文件
- * @returns 服务配置，如果文件不存在或读取失败则返回 null
+ *
+ * @returns
  */
 export function readServerConfig(): ServerConfig | null {
     try {
@@ -41,7 +38,7 @@ export function readServerConfig(): ServerConfig | null {
             return JSON.parse(content) as ServerConfig;
         }
     } catch (error) {
-        logger.debug('[WS] 读取服务配置失败:', error);
+        logger.debug('[WS] Failed to read server configuration:', error);
     }
     return null;
 }
@@ -58,7 +55,7 @@ function resolveWslWindowsHost(): string {
             return gatewayMatch[1];
         }
     } catch (error) {
-        logger.debug('[WS] 读取 WSL 默认网关失败，将尝试 resolv.conf:', error);
+        logger.debug('[WS] Failed to read WSL default gateway, will try resolv.conf:', error);
     }
 
     try {
@@ -71,7 +68,7 @@ function resolveWslWindowsHost(): string {
             }
         }
     } catch (error) {
-        logger.debug('[WS] 读取 /etc/resolv.conf 失败，将回退 localhost:', error);
+        logger.debug('[WS] Failed to read /etc/resolv.conf, falling back to localhost:', error);
     }
     return '127.0.0.1';
 }
@@ -93,24 +90,21 @@ function formatWsHost(host: string): string {
 }
 
 /**
- * 读取服务配置文件获取 WebSocket 端口
+ *
  * @returns WebSocket URL
  */
 function getWsUrl(): string {
     const host = formatWsHost(resolveWsHost());
     const config = readServerConfig();
     if (config && config.ws_port > 0) {
-        logger.debug(`[WS] 从配置文件读取端口: ${config.ws_port}, host=${host}`);
+        logger.debug(`[WS] Port read from configuration file: ${config.ws_port}, host=${host}`);
         return `ws://${host}:${config.ws_port}`;
     }
     
-    // 回退到默认端口
     return `ws://${host}:${DEFAULT_WS_PORT}`;
 }
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface WsMessage {
     type: string;
@@ -185,7 +179,6 @@ export interface PluginSwitchAccountResponsePayload {
     finished_at: string;
 }
 
-/** 账号信息（来自 Cockpit Tools） */
 export interface AccountInfo {
     id: string;
     email: string;
@@ -197,7 +190,6 @@ export interface AccountInfo {
     subscription_tier?: string | null;
 }
 
-/** 账号信息（包含 Token，用于同步） */
 export interface AccountTokenInfo extends AccountInfo {
     refresh_token: string;
     access_token: string;
@@ -205,21 +197,17 @@ export interface AccountTokenInfo extends AccountInfo {
     project_id?: string | null;
 }
 
-/** 账号列表响应 */
 export interface AccountsResponse {
     accounts: AccountInfo[];
     current_account_id: string | null;
 }
 
-/** 账号列表响应（包含 Token） */
 export interface AccountsWithTokensResponse {
     accounts: AccountTokenInfo[];
     current_account_id: string | null;
 }
 
-// ============================================================================
 // WebSocket Client
-// ============================================================================
 
 class CockpitToolsWsClient extends EventEmitter {
     private ws: WebSocket | null = null;
@@ -229,11 +217,9 @@ class CockpitToolsWsClient extends EventEmitter {
     private _version: string | null = null;
     private _shouldReconnect = true;
     
-    // 重连相关
     private reconnectFailCount = 0;
     private lastWsUrl: string | null = null;
     
-    // 请求等待队列
     private pendingRequests: Map<string, {
         resolve: (value: unknown) => void;
         reject: (error: Error) => void;
@@ -242,21 +228,21 @@ class CockpitToolsWsClient extends EventEmitter {
     private requestIdCounter = 0;
 
     /**
-     * 是否已连接
+     *
      */
     get isConnected(): boolean {
         return this._isConnected;
     }
 
     /**
-     * Cockpit Tools 版本
+     * Cockpit Tools
      */
     get version(): string | null {
         return this._version;
     }
 
     /**
-     * 连接到 Cockpit Tools
+     *
      */
     connect(): void {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -268,7 +254,7 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 断开连接
+     *
      */
     disconnect(): void {
         this._shouldReconnect = false;
@@ -276,11 +262,11 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 发送消息
+     *
      */
     send(message: WsMessage): boolean {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            logger.warn('[WS] 未连接，无法发送消息');
+            logger.warn('[WS] Not connected, cannot send message');
             return false;
         }
 
@@ -288,37 +274,34 @@ class CockpitToolsWsClient extends EventEmitter {
             this.ws.send(JSON.stringify(message));
             return true;
         } catch (error) {
-            logger.error('[WS] 发送消息失败:', error);
+            logger.error('[WS] Failed to send message:', error);
             return false;
         }
     }
     
     /**
-     * 发送请求并等待响应
+     *
      */
     private sendRequest<T>(type: string, payload?: Record<string, unknown>): Promise<T> {
         return new Promise((resolve, reject) => {
             if (!this.isConnected) {
-                reject(new Error('未连接到 Cockpit Tools'));
+                reject(new Error('Not connected to Cockpit Tools'));
                 return;
             }
             
             const requestId = `${++this.requestIdCounter}`;
             
-            // 设置超时
             const timeout = setTimeout(() => {
                 this.pendingRequests.delete(requestId);
-                reject(new Error('请求超时'));
+                reject(new Error('RequestTimeout'));
             }, REQUEST_TIMEOUT);
             
-            // 保存待处理请求
             this.pendingRequests.set(requestId, {
                 resolve: resolve as (value: unknown) => void,
                 reject,
                 timeout,
             });
             
-            // 发送请求
             const message: WsMessage = {
                 type,
                 payload: { ...payload, request_id: requestId },
@@ -327,27 +310,27 @@ class CockpitToolsWsClient extends EventEmitter {
             if (!this.send(message)) {
                 this.pendingRequests.delete(requestId);
                 clearTimeout(timeout);
-                reject(new Error('发送请求失败'));
+                reject(new Error('Failed to send request'));
             }
         });
     }
     
     /**
-     * 获取账号列表
+     *
      */
     async getAccounts(): Promise<AccountsResponse> {
         return this.sendRequest<AccountsResponse>('request.get_accounts');
     }
 
     /**
-     * 获取账号列表（包含 Token）
+     *
      */
     async getAccountsWithTokens(): Promise<AccountsWithTokensResponse> {
         return this.sendRequest<AccountsWithTokensResponse>('request.get_accounts_with_tokens');
     }
     
     /**
-     * 获取当前账号
+     *
      */
     async getCurrentAccount(): Promise<AccountInfo | null> {
         const result = await this.sendRequest<{ account: AccountInfo | null }>('request.get_current_account');
@@ -355,7 +338,7 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 请求切换账号
+     *
      */
     requestSwitchAccount(accountId: string): boolean {
         return this.send({
@@ -365,7 +348,7 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 切换账号 (RPC)
+     *
      */
     async switchAccount(accountId: string): Promise<{ success: boolean; message: string }> {
         try {
@@ -377,7 +360,7 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 通知数据已变更
+     *
      */
     notifyDataChanged(source: string): boolean {
         return this.send({
@@ -387,26 +370,24 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 确保 WebSocket 已连接
-     * 如果断开则立即尝试重连（读取最新配置）
-     * 可用于手动触发重连，例如刷新配额时
-     * @returns 当前是否已连接
+     *
+     *
+     *
+     * @returns
      */
     ensureConnected(): boolean {
         if (this._isConnected) {
             return true;
         }
         
-        logger.info('[WS] 检测到未连接，正在尝试强制恢复连接...');
+        logger.info('[WS] Not connected, attempting forced reconnect...');
 
         
-        // 取消现有的重连定时器，立即尝试连接
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
         
-        // 重置失败计数，立即尝试连接
         this.reconnectFailCount = 0;
         this._shouldReconnect = true;
         this.doConnect();
@@ -415,11 +396,11 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 等待 WebSocket 连接成功
-     * 如果当前已连接，立即返回 true
-     * 如果未连接，尝试强制重连并等待连接成功（带超时）
-     * @param timeoutMs 超时时间（毫秒），默认 5000ms
-     * @returns 是否成功连接
+     *
+     *
+     *
+     * @param timeoutMs
+     * @returns
      */
     waitForConnection(timeoutMs = 5000): Promise<boolean> {
         if (this._isConnected) {
@@ -435,33 +416,29 @@ class CockpitToolsWsClient extends EventEmitter {
                 resolved = true;
                 if (timer) { clearTimeout(timer); }
                 this.removeListener('connected', onConnected);
-                logger.info('[WS] 等待连接成功，继续执行操作');
+                logger.info('[WS] Waiting for connection, continuing operation');
                 resolve(true);
             };
 
-            // 监听连接成功事件
             this.on('connected', onConnected);
 
-            // 设置超时
             timer = setTimeout(() => {
                 if (resolved) { return; }
                 resolved = true;
                 this.removeListener('connected', onConnected);
-                logger.warn(`[WS] 等待连接超时 (${timeoutMs}ms)`);
+                logger.warn(`[WS] Connection wait timeout (${timeoutMs}ms)`);
                 resolve(false);
             }, timeoutMs);
 
-            // 触发重连
             this.ensureConnected();
         });
     }
     
     /**
-     * 添加/更新账号到 Cockpit Tools
-     * @param email 邮箱
+     *
+     * @param email
      * @param refreshToken Refresh Token
-     * @param accessToken Access Token（可选）
-     * @param expiresAt 过期时间戳（可选）
+     * @param expiresAt
      */
     async addAccount(
         email: string,
@@ -483,8 +460,8 @@ class CockpitToolsWsClient extends EventEmitter {
     }
     
     /**
-     * 删除账号（按邮箱）
-     * @param email 邮箱
+     *
+     * @param email
      */
     async deleteAccountByEmail(email: string): Promise<{ success: boolean; message: string }> {
         try {
@@ -498,7 +475,7 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 
     /**
-     * 设置 Cockpit Tools 语言
+     *
      */
     async setLanguage(language: string, source = 'extension'): Promise<{ success: boolean; message: string }> {
         try {
@@ -526,52 +503,48 @@ class CockpitToolsWsClient extends EventEmitter {
         });
     }
 
-    // ========================================================================
     // Private Methods
-    // ========================================================================
 
     private doConnect(): void {
         try {
-            // 每次重连都读取最新配置，确保端口变化后能正确连接
             const wsUrl = getWsUrl();
             
-            // 检测端口是否变化
             if (this.lastWsUrl && this.lastWsUrl !== wsUrl) {
-                logger.info(`[WS] 检测到端口变化: ${this.lastWsUrl} -> ${wsUrl}`);
+                logger.info(`[WS] Port change detected: ${this.lastWsUrl} -> ${wsUrl}`);
             }
             this.lastWsUrl = wsUrl;
             
-            logger.info(`[WS] 正在连接 ${wsUrl}... (尝试次数: ${this.reconnectFailCount + 1})`);
+            logger.info(`[WS] Connecting to ${wsUrl}... (attempt: ${this.reconnectFailCount + 1})`);
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
-                logger.info('[WS] 连接成功');
+                logger.info('[WS] ConnectionSuccess');
                 this._isConnected = true;
-                this.reconnectFailCount = 0; // 重置失败计数
+                this.reconnectFailCount = 0;
                 this.emit('connected');
                 this.startPing();
             };
 
             this.ws.onclose = (event) => {
-                logger.info(`[WS] 连接关闭: ${event.code}`);
+                logger.info(`[WS] Connection closed: ${event.code}`);
                 this._isConnected = false;
                 this._version = null;
                 this.emit('disconnected');
                 this.stopPing();
-                this.rejectAllPendingRequests('连接已断开');
+                this.rejectAllPendingRequests('Connection disconnected');
                 this.reconnectFailCount++;
                 this.scheduleReconnect();
             };
 
             this.ws.onerror = (error) => {
-                logger.debug('[WS] 连接错误:', error);
+                logger.debug('[WS] ConnectionError:', error);
             };
 
             this.ws.onmessage = (event) => {
                 this.handleMessage(event.data);
             };
         } catch (error) {
-            logger.error('[WS] 连接失败:', error);
+            logger.error('[WS] ConnectionFailed:', error);
             this.reconnectFailCount++;
             this.scheduleReconnect();
         }
@@ -582,7 +555,6 @@ class CockpitToolsWsClient extends EventEmitter {
             const message = JSON.parse(data) as WsMessage;
             const payload = message.payload as Record<string, unknown> | undefined;
             
-            // 处理响应消息
             if (message.type.startsWith('response.') && payload?.request_id) {
                 const requestId = payload.request_id as string;
                 const pending = this.pendingRequests.get(requestId);
@@ -591,7 +563,7 @@ class CockpitToolsWsClient extends EventEmitter {
                     clearTimeout(pending.timeout);
                     
                     if (message.type === 'response.error') {
-                        pending.reject(new Error(payload.error as string || '未知错误'));
+                        pending.reject(new Error(payload.error as string || 'unknown error'));
                     } else {
                         pending.resolve(payload);
                     }
@@ -603,42 +575,42 @@ class CockpitToolsWsClient extends EventEmitter {
                 case 'event.ready': {
                     const readyPayload = payload as unknown as ReadyPayload;
                     this._version = readyPayload.version;
-                    logger.info(`[WS] Cockpit Tools 就绪, 版本: ${readyPayload.version}`);
+                    logger.info(`[WS] Cockpit Tools ready, version: ${readyPayload.version}`);
                     this.emit('ready', readyPayload);
                     break;
                 }
 
                 case 'event.data_changed': {
                     const changedPayload = payload as unknown as DataChangedPayload;
-                    logger.info(`[WS] 数据变更: ${changedPayload.source}`);
+                    logger.info(`[WS] Data changed: ${changedPayload.source}`);
                     this.emit('dataChanged', changedPayload);
                     break;
                 }
 
                 case 'event.account_switched': {
                     const switchedPayload = payload as unknown as AccountSwitchedPayload;
-                    logger.info(`[WS] 账号切换完成: ${switchedPayload.email}`);
+                    logger.info(`[WS] Account switch done: ${switchedPayload.email}`);
                     this.emit('accountSwitched', switchedPayload);
                     break;
                 }
 
                 case 'event.switch_error': {
                     const errorPayload = payload as unknown as SwitchErrorPayload;
-                    logger.error(`[WS] 切换失败: ${errorPayload.message}`);
+                    logger.error(`[WS] Switch failed: ${errorPayload.message}`);
                     this.emit('switchError', errorPayload);
                     break;
                 }
 
                 case 'event.language_changed': {
                     const languagePayload = payload as unknown as LanguageChangedPayload;
-                    logger.info(`[WS] 语言变更: ${languagePayload.language}`);
+                    logger.info(`[WS] Language changed: ${languagePayload.language}`);
                     this.emit('languageChanged', languagePayload);
                     break;
                 }
 
                 case 'event.wakeup_override': {
                     const overridePayload = payload as unknown as WakeupOverridePayload;
-                    logger.info(`[WS] 唤醒互斥状态: enabled=${overridePayload.enabled}`);
+                    logger.info(`[WS] Wake exclusion status: enabled=${overridePayload.enabled}`);
                     this.emit('wakeupOverride', overridePayload);
                     break;
                 }
@@ -646,7 +618,7 @@ class CockpitToolsWsClient extends EventEmitter {
                 case 'event.plugin_set_switch_mode': {
                     const modePayload = payload as unknown as PluginSetSwitchModePayload;
                     logger.info(
-                        `[WS] 收到外部切换模式请求: request_id=${modePayload.request_id ?? 'none'}, mode=${modePayload.switch_mode ?? 'none'}`,
+                    `[WS] Received external switch mode request: request_id=${modePayload.request_id ?? 'none'}, mode=${modePayload.switch_mode ?? 'none'}`,
                     );
                     this.emit('pluginSetSwitchMode', modePayload);
                     break;
@@ -655,21 +627,20 @@ class CockpitToolsWsClient extends EventEmitter {
                 case 'event.plugin_switch_account': {
                     const switchPayload = payload as unknown as PluginSwitchAccountPayload;
                     logger.info(
-                        `[WS] 收到外部切号请求: request_id=${switchPayload.request_id ?? 'none'}, target=${switchPayload.target_email ?? 'none'}, mode=${switchPayload.switch_mode ?? 'auto'}`,
+                        `[WS] Received external account switch request: request_id=${switchPayload.request_id ?? 'none'}, target=${switchPayload.target_email ?? 'none'}, mode=${switchPayload.switch_mode ?? 'auto'}`,
                     );
                     this.emit('pluginSwitchAccount', switchPayload);
                     break;
                 }
 
                 case 'pong':
-                    // 心跳响应，忽略
                     break;
 
                 default:
-                    logger.debug(`[WS] 未知消息类型: ${message.type}`);
+                    logger.debug(`[WS] Unknown message type: ${message.type}`);
             }
         } catch (error) {
-            logger.error('[WS] 解析消息失败:', error);
+            logger.error('[WS] Failed to parse message:', error);
         }
     }
     
@@ -690,14 +661,13 @@ class CockpitToolsWsClient extends EventEmitter {
             return;
         }
 
-        // 渐进式退避：失败次数越多，等待时间越长
-        // 5s -> 10s -> 15s -> 20s -> 25s -> 30s (最大)
+
         const delay = Math.min(
             RECONNECT_INTERVAL + (this.reconnectFailCount * 5000),
             RECONNECT_INTERVAL_MAX,
         );
         
-        logger.info(`[WS] ${delay / 1000}秒后重连... (失败次数: ${this.reconnectFailCount})`);
+        logger.info(`[WS] Reconnecting in ${delay / 1000}s... (fail count: ${this.reconnectFailCount})`);
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
             this.doConnect();
@@ -720,7 +690,7 @@ class CockpitToolsWsClient extends EventEmitter {
 
     private cleanup(): void {
         this.stopPing();
-        this.rejectAllPendingRequests('连接已关闭');
+        this.rejectAllPendingRequests('Connection closed');
 
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
@@ -741,5 +711,4 @@ class CockpitToolsWsClient extends EventEmitter {
     }
 }
 
-// 导出单例
 export const cockpitToolsWs = new CockpitToolsWsClient();

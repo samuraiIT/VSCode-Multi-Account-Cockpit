@@ -1,7 +1,7 @@
 /**
  * Antigravity Cockpit - OAuth Service
- * Google OAuth 认证服务
- * 处理 OAuth 授权流程、Token 交换和刷新
+ * Google OAuth
+ *
  */
 
 import * as vscode from 'vscode';
@@ -12,7 +12,7 @@ import { credentialStorage } from './credential_storage';
 import { logger } from '../shared/log_service';
 import { t } from '../shared/i18n';
 
-// Antigravity OAuth 配置
+
 // NOTE: Set these via environment variables or VS Code secret storage in production.
 const ANTIGRAVITY_CLIENT_ID = process.env['ANTIGRAVITY_CLIENT_ID'] ?? '';
 const ANTIGRAVITY_CLIENT_SECRET = process.env['ANTIGRAVITY_CLIENT_SECRET'] ?? '';
@@ -27,7 +27,6 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/auth';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 
-// 回调服务器配置
 const CALLBACK_HOST_IPV4 = '127.0.0.1';
 const CALLBACK_HOST_IPV6 = '::1';
 const CALLBACK_PORT_START = 11451;
@@ -35,7 +34,7 @@ const CALLBACK_PORT_RANGE = 100;
 const OAUTH_HTTP_TIMEOUT_MS = 15000;
 
 /**
- * OAuth 服务类
+ * OAuth
  */
 class OAuthService {
     private callbackServer?: http.Server;
@@ -52,17 +51,17 @@ class OAuthService {
     };
 
     /**
-     * 开始 OAuth 授权流程
-     * @returns 授权成功返回 true，失败返回 false
+     *
+     * @returns
      */
     async startAuthorization(): Promise<boolean> {
         logger.info('[OAuthService] Starting authorization flow');
 
         try {
-            // 1. 生成授权 URL 并启动回调服务器
+
             const authUrl = await this.prepareAuthorizationSession();
 
-            // 2. 打开浏览器
+
             const opened = await vscode.env.openExternal(vscode.Uri.parse(authUrl));
             if (!opened) {
                 logger.warn('[OAuthService] Failed to open browser, falling back to clipboard');
@@ -74,7 +73,7 @@ class OAuthService {
                 vscode.window.showWarningMessage(t('oauth.browserOpenFailed'));
             }
 
-            // 5. 显示等待提示
+
             vscode.window.showInformationMessage(
                 t('oauth.waiting'),
                 t('common.cancel'),
@@ -84,7 +83,7 @@ class OAuthService {
                 }
             });
 
-            // 3. 等待回调并完成授权
+
             const session = this.pendingAuthSession;
             if (!session) {
                 throw new Error('OAuth session not initialized');
@@ -104,7 +103,7 @@ class OAuthService {
     }
 
     /**
-     * 生成授权链接并启动回调服务器（不自动打开浏览器）
+     *
      */
     async prepareAuthorizationSession(): Promise<string> {
         if (this.pendingAuthSession) {
@@ -128,7 +127,7 @@ class OAuthService {
     }
 
     /**
-     * 等待回调并完成授权
+     *
      */
     async completeAuthorizationSession(): Promise<boolean> {
         if (!this.pendingAuthSession) {
@@ -145,7 +144,7 @@ class OAuthService {
     }
 
     /**
-     * 取消正在进行的授权
+     *
      */
     cancelAuthorizationSession(): void {
         this.cancelPendingAuth();
@@ -153,7 +152,7 @@ class OAuthService {
     }
 
     /**
-     * 撤销授权 (removes all accounts)
+     *
      */
     async revokeAuthorization(): Promise<void> {
         await credentialStorage.deleteCredential();
@@ -162,8 +161,8 @@ class OAuthService {
     }
 
     /**
-     * 撤销指定账号的授权
-     * @param email 要撤销的账号邮箱
+     *
+     * @param email
      */
     async revokeAccount(email: string): Promise<void> {
         await credentialStorage.deleteCredentialForAccount(email);
@@ -172,8 +171,8 @@ class OAuthService {
     }
 
     /**
-     * 刷新 access_token
-     * @returns 新的 access_token，失败返回 null
+     *
+     * @returns
      */
     async refreshAccessToken(): Promise<string | null> {
         const result = await this.refreshAccessTokenDetailed();
@@ -184,7 +183,7 @@ class OAuthService {
     }
 
     /**
-     * 获取有效的 access_token（必要时自动刷新）
+     *
      */
     async getValidAccessToken(): Promise<string | null> {
         const result = await this.getAccessTokenStatus();
@@ -197,10 +196,10 @@ class OAuthService {
             return { state: 'missing' };
         }
 
-        // 检查是否过期（提前 5 分钟刷新）
+
         const expiresAt = new Date(credential.expiresAt);
         const now = new Date();
-        const bufferTime = 5 * 60 * 1000; // 5 分钟
+        const bufferTime = 5 * 60 * 1000;
         const isExpired = expiresAt.getTime() <= now.getTime();
 
         if (expiresAt.getTime() - now.getTime() < bufferTime) {
@@ -216,7 +215,7 @@ class OAuthService {
     }
 
     /**
-     * 从已有 Token 数据构建凭证（不触发网络请求）
+     *
      */
     buildCredentialFromTokenData(params: {
         accessToken: string;
@@ -240,8 +239,8 @@ class OAuthService {
     }
 
     /**
-     * 使用 refresh_token 直接构造完整 OAuth 凭证（无需用户交互）
-     * 适用于从 Antigravity Tools 导入的 token
+     *
+     *
      */
     async buildCredentialFromRefreshToken(refreshToken: string, fallbackEmail?: string): Promise<OAuthCredential> {
         try {
@@ -262,9 +261,9 @@ class OAuthService {
                 const errorText = await response.text();
                 const lowered = errorText.toLowerCase();
                 if (lowered.includes('invalid_grant')) {
-                    throw new Error('refresh_token 已失效 (invalid_grant)');
+                    throw new Error('refresh_token has expired (invalid_grant)');
                 }
-                throw new Error(`刷新失败: ${response.status} - ${errorText}`);
+                throw new Error(`RefreshFailed: ${response.status} - ${errorText}`);
             }
 
             const data = await response.json() as {
@@ -281,11 +280,11 @@ class OAuthService {
                 email = await this.fetchUserEmail(data.access_token);
             } catch (e) {
                 const err = e instanceof Error ? e.message : String(e);
-                logger.warn(`[OAuthService] 获取用户邮箱失败，使用备用邮箱: ${err}`);
+                logger.warn(`[OAuthService] Failed to fetch user email, using fallback: ${err}`);
             }
 
             if (!email) {
-                throw new Error('无法确定账号邮箱，拒绝同步');
+                throw new Error('Cannot determine account email, rejecting sync');
             }
 
             return {
@@ -301,13 +300,13 @@ class OAuthService {
             };
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
-            logger.error(`[OAuthService] 通过 refresh_token 构造凭证失败: ${err.message}`);
+            logger.error(`[OAuthService] Failed to build credentials from refresh_token: ${err.message}`);
             throw err;
         }
     }
 
     /**
-     * 获取指定账号的 access_token 状态
+     *
      */
     async getAccessTokenStatusForAccount(email: string): Promise<AccessTokenResult> {
         const credential = await credentialStorage.getCredentialForAccount(email);
@@ -315,10 +314,10 @@ class OAuthService {
             return { state: 'missing' };
         }
 
-        // 检查是否过期（提前 5 分钟刷新）
+
         const expiresAt = new Date(credential.expiresAt);
         const now = new Date();
-        const bufferTime = 5 * 60 * 1000; // 5 分钟
+        const bufferTime = 5 * 60 * 1000;
         const isExpired = expiresAt.getTime() <= now.getTime();
 
         if (expiresAt.getTime() - now.getTime() < bufferTime) {
@@ -334,7 +333,7 @@ class OAuthService {
     }
 
     /**
-     * 启动回调服务器
+     *
      */
     private async startCallbackServer(): Promise<number> {
         return new Promise((resolve, reject) => {
@@ -393,7 +392,7 @@ class OAuthService {
     }
 
     /**
-     * 停止回调服务器
+     *
      */
     private stopCallbackServer(): void {
         if (this.callbackServer) {
@@ -404,7 +403,7 @@ class OAuthService {
     }
 
     /**
-     * 处理 OAuth 回调
+     *
      */
     private handleCallback(req: http.IncomingMessage, res: http.ServerResponse): void {
         const url = new URL(req.url || '', this.callbackBaseUrl);
@@ -416,11 +415,11 @@ class OAuthService {
             res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(`
                 <html>
-                <head><title>授权失败</title></head>
+                <head><title>AuthorizationFailed</title></head>
                 <body style="font-family: system-ui; text-align: center; padding: 50px;">
-                    <h1>❌ 授权失败</h1>
-                    <p>错误: ${error}</p>
-                    <p>请关闭此页面并重试。</p>
+                    <h1>❌ AuthorizationFailed</h1>
+                    <p>Error: ${error}</p>
+                    <p>Please close this page and try again.</p>
                 </body>
                 </html>
             `);
@@ -435,10 +434,10 @@ class OAuthService {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(`
                 <html>
-                <head><title>授权成功</title></head>
+                <head><title>AuthorizationSuccess</title></head>
                 <body style="font-family: system-ui; text-align: center; padding: 50px;">
-                    <h1>✅ 授权成功！</h1>
-                    <p>您可以关闭此页面，返回 VS Code。</p>
+                    <h1>✅ AuthorizationSuccess！</h1>
+                    <p>You can close this page and return to VS Code.</p>
                     <script>setTimeout(() => window.close(), 2000);</script>
                 </body>
                 </html>
@@ -449,10 +448,10 @@ class OAuthService {
             res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(`
                 <html>
-                <head><title>无效请求</title></head>
+                <head><title>InvalidRequest</title></head>
                 <body style="font-family: system-ui; text-align: center; padding: 50px;">
-                    <h1>⚠️ 无效请求</h1>
-                    <p>请重新发起授权。</p>
+                    <h1>⚠️ InvalidRequest</h1>
+                    <p>Please re-initiate authorization.</p>
                 </body>
                 </html>
             `);
@@ -460,7 +459,7 @@ class OAuthService {
     }
 
     /**
-     * 等待回调
+     *
      */
     private waitForCallback(state: string, timeout: number): Promise<string> {
         return new Promise((resolve, reject) => {
@@ -478,7 +477,7 @@ class OAuthService {
     }
 
     /**
-     * 取消待处理的授权
+     *
      */
     private cancelPendingAuth(): void {
         if (this.pendingAuth) {
@@ -490,13 +489,13 @@ class OAuthService {
     }
 
     /**
-     * 完成授权流程（换取 token、保存账号）
+     *
      */
     private async finalizeAuthorization(code: string, redirectUri: string): Promise<boolean> {
-        // 1. 用 code 换取 token
+
         const credential = await this.exchangeCodeForToken(code, redirectUri);
 
-        // 2. 获取用户信息
+
         const email = await this.fetchUserEmail(credential.accessToken);
         credential.email = email;
 
@@ -511,10 +510,10 @@ class OAuthService {
             return true;
         }
 
-        // 4. 保存凭证 (new account)
+
         const result = await credentialStorage.saveCredentialForAccount(email, credential);
 
-        // 5. 显示成功提示
+
         if (result === 'added') {
             vscode.window.showInformationMessage(t('oauth.authSuccess', { email }));
         }
@@ -524,7 +523,7 @@ class OAuthService {
     }
 
     /**
-     * 生成状态码
+     *
      */
     private generateState(): string {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -547,7 +546,7 @@ class OAuthService {
     }
 
     /**
-     * 构建授权 URL
+     *
      */
     private buildAuthUrl(redirectUri: string, state: string): string {
         const params = new URLSearchParams({
@@ -557,14 +556,14 @@ class OAuthService {
             scope: ANTIGRAVITY_SCOPES.join(' '),
             state: state,
             access_type: 'offline',
-            prompt: 'consent',  // 强制显示授权确认，确保获得 refresh_token
+            prompt: 'consent',
             include_granted_scopes: 'true',
         });
         return `${AUTH_URL}?${params.toString()}`;
     }
 
     /**
-     * 用 authorization code 换取 token
+     *
      */
     private async exchangeCodeForToken(code: string, redirectUri: string): Promise<OAuthCredential> {
         const response = await this.fetchWithTimeout(TOKEN_URL, {
@@ -611,7 +610,7 @@ class OAuthService {
     }
 
     /**
-     * 获取用户邮箱
+     *
      */
     private async fetchUserEmail(accessToken: string): Promise<string> {
         const response = await this.fetchWithTimeout(USERINFO_URL, {
@@ -747,7 +746,7 @@ class OAuthService {
             return response;
         } catch (error) {
             if (error instanceof Error && error.name === 'AbortError') {
-                throw new Error('请求超时');
+                throw new Error('RequestTimeout');
             }
             throw error;
         } finally {
@@ -756,7 +755,6 @@ class OAuthService {
     }
 }
 
-// 导出单例
 export const oauthService = new OAuthService();
 
 export type AccessTokenState =

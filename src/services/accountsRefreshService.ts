@@ -25,12 +25,12 @@ export interface AccountState {
     hasDeviceBound: boolean;
     hasPluginCredential: boolean;
     tier?: string;
-    // 异常状态（从 credentialStorage 同步）
-    isInvalid?: boolean;        // Token 失效（需重新授权）
-    invalidReason?: string;     // 失效原因（用于UI显示）
-    isForbidden?: boolean;      // 403 无权限（跳过自动刷新）
-    forbiddenReason?: string;   // 无权限原因（用于UI显示）
-    expiresAt?: string;         // Token 过期时间
+
+    isInvalid?: boolean;
+    invalidReason?: string;
+    isForbidden?: boolean;
+    forbiddenReason?: string;
+    expiresAt?: string;
 }
 
 export class AccountsRefreshService {
@@ -52,7 +52,6 @@ export class AccountsRefreshService {
     private readonly onDidUpdateEmitter = new vscode.EventEmitter<void>();
     readonly onDidUpdate = this.onDidUpdateEmitter.event;
 
-    /** 配额刷新管理器（统一入口） */
     private readonly quotaRefreshManager: QuotaRefreshManager;
 
     constructor(private readonly reactor: ReactorCore) {
@@ -101,8 +100,8 @@ export class AccountsRefreshService {
     }
 
     /**
-     * 供管理弹框使用，兼容原有格式
-     * 替代 credentialStorage.getAccountInfoList()
+     *
+     *
      */
     getAccountInfoList(): Array<{
         email: string;
@@ -197,7 +196,6 @@ export class AccountsRefreshService {
                 logger.info(`[AccountsRefresh] Loaded ${this.accounts.size} accounts, tools available: ${this.toolsAvailable}`);
                 this.emitUpdate();
 
-                // 刷新配额（可选跳过）
                 const allowForbidden = options?.allowForbidden ?? false;
                 if (!options?.skipQuotaRefresh) {
                     const emails: string[] = [];
@@ -217,10 +215,9 @@ export class AccountsRefreshService {
                         emails.push(email);
                     }
                     
-                    // 使用 QuotaRefreshManager 批量刷新（走文件缓存）
+
                     const results = await this.quotaRefreshManager.refreshAccounts(emails, { reason: reason });
                     
-                    // 将结果同步到内存缓存
                     for (const [email, result] of results) {
                         if (result.success && result.snapshot) {
                             const cache: AccountQuotaCache = {
@@ -246,7 +243,7 @@ export class AccountsRefreshService {
                     }
                     this.emitUpdate();
                 } else {
-                    logger.info('[AccountsRefresh] 跳过配额刷新 (skipQuotaRefresh=true)');
+                    logger.info('[AccountsRefresh] Skipped quota refresh (skipQuotaRefresh=true)');
                 }
             } catch (err) {
                 const error = err instanceof Error ? err.message : String(err);
@@ -271,7 +268,7 @@ export class AccountsRefreshService {
             return;
         }
 
-        // 配额刷新不依赖 Cockpit Tools，只需要插件自身的凭证即可
+
 
         if (this.isRefreshingQuotas) {
             logger.debug('[AccountsRefresh] Quota refresh already in progress, skipping');
@@ -280,7 +277,7 @@ export class AccountsRefreshService {
 
         this.isRefreshingQuotas = true;
         try {
-            // 使用 QuotaRefreshManager 批量刷新（走文件缓存）
+
             const emails: string[] = [];
             for (const [email, account] of this.accounts) {
                 if (!account.hasPluginCredential) {
@@ -300,7 +297,6 @@ export class AccountsRefreshService {
 
             const results = await this.quotaRefreshManager.refreshAccounts(emails, { reason: 'autoRefresh' });
             
-            // 将结果同步到内存缓存
             for (const [email, result] of results) {
                 if (result.success && result.snapshot) {
                     const cache: AccountQuotaCache = {
@@ -319,7 +315,6 @@ export class AccountsRefreshService {
                         this.setErrorCache(email, result.error || 'Unknown error');
                     }
                     
-                    // 检查是否为授权失败
                     if (result.error && this.isAuthError(result.error)) {
                         const account = this.accounts.get(email);
                         if (account) {
@@ -337,7 +332,7 @@ export class AccountsRefreshService {
     }
 
     /**
-     * 检查错误是否为授权失败
+     *
      */
     private isAuthError(error: string): boolean {
         return error.includes('Authorization expired') 
@@ -354,8 +349,8 @@ export class AccountsRefreshService {
     }
 
     /**
-     * 加载单个账号的配额（强制刷新，忽略缓存）
-     * 用于：账号卡片点击刷新、主页面刷新按钮
+     *
+     *
      */
     async loadAccountQuota(email: string): Promise<void> {
         const account = this.accounts.get(email);
@@ -365,7 +360,7 @@ export class AccountsRefreshService {
             return;
         }
 
-        // 设置 loading 状态
+
         const cache = this.quotaCache.get(email) || {
             snapshot: { timestamp: new Date(), models: [], isConnected: false },
             fetchedAt: 0,
@@ -375,7 +370,7 @@ export class AccountsRefreshService {
         this.quotaCache.set(email, cache);
         this.emitUpdate();
 
-        // 使用 QuotaRefreshManager 强制刷新（忽略缓存）
+
         const result = await this.quotaRefreshManager.refreshAccount(email, {
             forceRefresh: true,
             reason: 'manualSingle',
@@ -398,7 +393,6 @@ export class AccountsRefreshService {
             }
             logger.error(`[AccountsRefresh] Failed to load quota for ${email}:`, result.error);
             
-            // 检查是否为授权失败
             if (result.error && this.isAuthError(result.error)) {
                 if (account) {
                     account.isInvalid = true;
@@ -431,10 +425,10 @@ export class AccountsRefreshService {
     }
 
     /**
-     * 计算下一次自动刷新的间隔（含随机偏移）
-     * 规则：
-     * - 设置间隔 ≥ 30秒：随机 [-10秒, +10秒] 偏移
-     * - 设置间隔 < 30秒：随机 [0秒, +10秒] 偏移（只加不减）
+     *
+     *
+     * -
+     * -
      */
     private calculateNextRefreshInterval(): number {
         const baseIntervalMs = configService.getRefreshIntervalMs();
@@ -442,20 +436,20 @@ export class AccountsRefreshService {
 
         let offsetMs: number;
         if (baseSeconds >= 30) {
-            // 30秒及以上：-10到+10秒随机
+
             offsetMs = (Math.random() * 20 - 10) * 1000;
         } else {
-            // 30秒以下：0到+10秒随机（只加不减）
+
             offsetMs = Math.random() * 10 * 1000;
         }
 
-        // 确保最小间隔为 5 秒
+
         return Math.max(5000, baseIntervalMs + offsetMs);
     }
 
     /**
-     * 调度下一次自动刷新
-     * 使用动态 setTimeout 替代固定 setInterval，每次刷新后重新计算下一次间隔
+     *
+     *
      */
     private scheduleNextAutoRefresh(): void {
         if (this.refreshTimer) {
@@ -468,7 +462,6 @@ export class AccountsRefreshService {
 
         this.refreshTimer = setTimeout(() => {
             void this.refreshQuotas().finally(() => {
-                // 刷新完成后调度下一次
                 this.scheduleNextAutoRefresh();
             });
         }, nextIntervalMs);
@@ -507,7 +500,6 @@ export class AccountsRefreshService {
                 currentEmail = acc.email;
             }
 
-            // 读取该账号的凭证状态
             const credential = credentials[acc.email];
 
             this.accounts.set(acc.email, {
@@ -517,7 +509,6 @@ export class AccountsRefreshService {
                 hasDeviceBound: acc.has_fingerprint,
                 hasPluginCredential: pluginEmails.has(acc.email),
                 tier: this.extractTierFromAccount(acc as unknown as { [key: string]: unknown }),
-                // 合并凭证异常状态
                 isInvalid: credential?.isInvalid ?? false,
                 invalidReason: credential?.isInvalid ? t('accountsRefresh.authExpired') : undefined,
                 isForbidden: credential?.isForbidden ?? false,
@@ -576,7 +567,6 @@ export class AccountsRefreshService {
                 isCurrent,
                 hasDeviceBound: false,
                 hasPluginCredential: true,
-                // 合并凭证异常状态
                 isInvalid: credential?.isInvalid ?? false,
                 invalidReason: credential?.isInvalid ? t('accountsRefresh.authExpired') : undefined,
                 isForbidden: credential?.isForbidden ?? false,
@@ -599,8 +589,8 @@ export class AccountsRefreshService {
     }
 
     /**
-     * 统一判断：账号是否可刷新配额
-     * 所有刷新逻辑调用这个方法，避免重复判断
+     *
+     *
      */
     private checkAccountRefreshable(email: string): {
         canRefresh: boolean;
@@ -608,7 +598,7 @@ export class AccountsRefreshService {
     } {
         const account = this.accounts.get(email);
         
-        // 1. 没有插件凭证
+
         if (!account?.hasPluginCredential) {
             return { 
                 canRefresh: false, 
@@ -616,7 +606,7 @@ export class AccountsRefreshService {
             };
         }
         
-        // 2. 已标记为失效
+
         if (account.isInvalid) {
             return { 
                 canRefresh: false, 
@@ -679,14 +669,12 @@ export class AccountsRefreshService {
     }
 
     /**
-     * @deprecated 已被 QuotaRefreshManager 替代，保留以备回退
+     * @deprecated
      */
     private async silentLoadAccountQuota(email: string): Promise<void> {
-        // 统一检查
         const { canRefresh, skipReason } = this.checkAccountRefreshable(email);
         
         if (!canRefresh) {
-            // 直接设置错误缓存，跳过网络请求
             this.setErrorCache(email, skipReason!);
             return;
         }
@@ -708,7 +696,6 @@ export class AccountsRefreshService {
         } catch (err) {
             const error = err instanceof Error ? err.message : String(err);
             
-            // 判断是否为授权失败错误（多种情况）
             const isAuthError = error.includes('Authorization expired') 
                 || error.includes('invalid_grant')
                 || error.includes('401')

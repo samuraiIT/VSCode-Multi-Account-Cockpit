@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Electron 在 process 上注入的非标准属性
+
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-namespace
     namespace NodeJS {
@@ -12,9 +12,9 @@ declare global {
 }
 
 /**
- * 惰性求值 product.json 路径。
- * process.resourcesPath 是 Electron 专有属性，在 WSL / SSH 远程扩展宿主中为 undefined。
- * 延迟到首次调用时再计算，避免模块加载阶段就崩溃。
+ *
+ * process.resourcesPath
+ *
  */
 let resolvedProductJsonPath: string | null | undefined;
 

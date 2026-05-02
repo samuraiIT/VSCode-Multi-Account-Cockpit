@@ -108,7 +108,7 @@ class AccountSwitchService {
                         mode: 'default',
                         email,
                         errorCode: 'tools_offline',
-                        message: 'Cockpit Tools 未运行或未连接',
+                        message: 'Cockpit Tools not running or not connected',
                     };
                 }
             }
@@ -120,7 +120,7 @@ class AccountSwitchService {
                     mode: 'default',
                     email,
                     errorCode: 'account_not_found',
-                    message: '未找到该账号对应的 Tools ID',
+                    message: 'Account Tools ID not found',
                 };
             }
 
@@ -166,7 +166,7 @@ class AccountSwitchService {
                 mode: 'seamless',
                 email,
                 errorCode: 'host_unavailable',
-                message: `无感切号不可用：当前宿主不支持可用的切号接口（${selected.reason}），请改用默认方式。`,
+                message: `Seamless switch unavailable: host does not support switch interface (${selected.reason}), use default mode.`,
             };
         }
         return this.switchViaTokenApi(
@@ -175,8 +175,8 @@ class AccountSwitchService {
             selected.tokenApi,
             selected.apiName,
             selected.apiName === 'OAuthPreferences'
-                ? '无感切号不可用：当前宿主不支持 OAuthPreferences.setOAuthTokenInfo，请切回默认方式。'
-                : '无感切号不可用：当前宿主不支持 antigravityAuth.setOAuthTokenInfo，请切回默认方式。',
+                ? 'Seamless switch unavailable: host does not support OAuthPreferences.setOAuthTokenInfo, switch to default mode.'
+                : 'Seamless switch unavailable: host does not support antigravityAuth.setOAuthTokenInfo, use default mode.',
         );
     }
 
@@ -197,7 +197,7 @@ class AccountSwitchService {
                     mode,
                     email: requestedEmail,
                     errorCode: 'account_not_found',
-                    message: '未找到该账号的本地凭据',
+                    message: 'Local credentials not found for account',
                 };
             }
 
@@ -228,7 +228,7 @@ class AccountSwitchService {
                     mode,
                     email: resolvedEmail,
                     errorCode: 'token_missing',
-                    message: '账号凭据不完整，缺少 refresh_token',
+                    message: 'Incomplete account credentials, missing refresh_token',
                 };
             }
 
@@ -239,7 +239,7 @@ class AccountSwitchService {
                     mode,
                     email: resolvedEmail,
                     errorCode: 'invalid_expiry',
-                    message: '账号 expiresAt 无效，无法进行无感切号',
+                    message: 'Account expiresAt invalid, cannot perform seamless switch',
                 };
             }
 
@@ -250,7 +250,7 @@ class AccountSwitchService {
                     mode,
                     email: resolvedEmail,
                     errorCode: 'token_missing',
-                    message: '账号凭据不完整，缺少 access_token',
+                    message: 'Incomplete account credentials, missing access_token',
                 };
             }
 
@@ -320,15 +320,15 @@ class AccountSwitchService {
     private buildSeamlessTokenErrorMessage(state: string, error?: string): string {
         switch (state) {
             case 'missing':
-                return '未找到该账号的本地凭据，无法执行无感切号';
+                return 'Local credentials not found, cannot perform seamless switch';
             case 'invalid_grant':
-                return '该账号 refresh_token 已失效，请重新授权后再切换';
+                return 'Account refresh_token has expired, please re-authorize before switching';
             case 'expired':
-                return '该账号 access_token 已过期，请重新授权后再切换';
+                return 'Account access_token has expired, please re-authorize before switching';
             case 'refresh_failed':
-                return `刷新目标账号 access_token 失败：${error || '未知错误'}`;
+                return `Failed to refresh target account access_token: ${error || 'unknown error'}`;
             default:
-                return error || '无感切号失败：目标账号 token 不可用';
+                return error || 'Seamless switch failed: target account token unavailable';
         }
     }
 
@@ -336,7 +336,7 @@ class AccountSwitchService {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
         const timeoutPromise = new Promise<never>((_, reject) => {
             timeoutId = setTimeout(() => {
-                reject(new Error(`无感切号调用超时：${stage}`));
+                reject(new Error(`Seamless switch call timeout: ${stage}`));
             }, timeoutMs);
         });
 

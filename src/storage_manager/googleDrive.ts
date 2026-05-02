@@ -394,9 +394,7 @@ export class GoogleDriveService {
         }));
     }
 
-    // =====================================================
     // Per-File Sync Methods (New Format)
-    // =====================================================
 
     /**
      * Get or create a folder for a conversation

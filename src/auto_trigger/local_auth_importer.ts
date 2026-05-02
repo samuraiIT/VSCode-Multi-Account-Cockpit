@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
-// 使用 sql.js 的 wasm 版本（需要 .wasm 文件）
+
 import initSqlJs, { Database } from 'sql.js/dist/sql-wasm.js';
 import { credentialStorage } from './credential_storage';
 import { oauthService } from './oauth_service';
@@ -12,17 +12,17 @@ import { getAntigravityStateDbPath, getAntigravityUserDataDir } from '../shared/
 const LEGACY_STATE_KEY = 'jetskiStateSync.agentManagerInitState';
 const UNIFIED_STATE_KEY = 'antigravityUnifiedStateSync.oauthToken';
 
-// sql.js 初始化缓存
+
 let sqlJsPromise: ReturnType<typeof initSqlJs> | null = null;
 
 async function getSqlJs(): Promise<Awaited<ReturnType<typeof initSqlJs>>> {
     if (!sqlJsPromise) {
         sqlJsPromise = initSqlJs({
-            // 使用 file:// URL 格式，避免在某些 VS Code 环境下 sql.js 内部通过 fetch()
-            // 加载 wasm 时将本地路径传入 new URL() 导致 "Invalid URL protocol" 错误
+
+
             locateFile: (file: string) => pathToFileURL(path.join(__dirname, file)).href,
         }).catch((err: unknown) => {
-            // 初始化失败时重置缓存，避免后续调用永远使用已失败的 Promise
+
             sqlJsPromise = null;
             throw err;
         });
@@ -45,10 +45,9 @@ interface PendingLocalCredential {
 const PENDING_CREDENTIAL_TTL_MS = 2 * 60 * 1000;
 let pendingLocalCredential: PendingLocalCredential | null = null;
 
-// 注意：state.vscdb 路径统一由 shared/antigravity_paths 提供，避免多处维护。
+
 
 async function readStateValueByKey(dbPath: string, key: string): Promise<string> {
-    // 检查数据库文件是否存在
     if (!fs.existsSync(dbPath)) {
         throw new Error(`Database file not found: ${dbPath}`);
     }
@@ -301,7 +300,7 @@ export async function previewLocalCredential(
     );
 
     if (!credential.email) {
-        throw new Error('无法确定账号邮箱');
+        throw new Error('Cannot determine account email');
     }
 
     logger.info(`[LocalAuthImport] resolved account: ${credential.email}`);
@@ -336,7 +335,7 @@ export async function commitLocalCredential(
     }
 
     if (!credential.email) {
-        throw new Error('无法确定账号邮箱');
+        throw new Error('Cannot determine account email');
     }
 
     const existed = await credentialStorage.hasAccount(credential.email);
@@ -357,11 +356,11 @@ export async function importLocalCredential(fallbackEmail?: string): Promise<{ e
 }
 
 /**
- * 确保本地 Antigravity 账户已导入到 credentialStorage
- * 用于 local 配额模式下通过远端 API 获取配额数据
- * - 如果 credentialStorage 已有有效凭证，直接返回当前账户邮箱
- * - 如果没有，尝试从 state.vscdb 读取并保存到 credentialStorage
- * @returns 账户邮箱或 null
+ *
+ *
+ * -
+ * -
+ * @returns
  */
 export async function ensureLocalCredentialImported(
     options: { forceReload?: boolean } = {},
@@ -388,7 +387,7 @@ export async function ensureLocalCredentialImported(
             return null;
         }
 
-        // 保存到 credentialStorage（自动导入）
+
         await credentialStorage.saveCredential(credential);
         logger.info(`[LocalAuth] resolved account: ${credential.email}`);
         logger.info(`[LocalAuth] Auto-imported credential for ${credential.email}`);

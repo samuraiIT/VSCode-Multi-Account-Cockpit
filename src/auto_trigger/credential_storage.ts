@@ -1,7 +1,7 @@
 /**
  * Antigravity Cockpit - Credential Storage
- * OAuth 凭证的安全存储服务
- * 使用 VS Code 的 SecretStorage API 安全存储敏感信息
+ * OAuth
+ *
  * 
  * Supports multiple accounts with active account selection
  */
@@ -17,7 +17,7 @@ const LEGACY_CREDENTIAL_KEY = 'antigravity.autoTrigger.credential';
 const CREDENTIALS_KEY = 'antigravity.autoTrigger.credentials';
 const ACTIVE_ACCOUNT_KEY = 'antigravity.autoTrigger.activeAccount';
 const STATE_KEY = 'antigravity.autoTrigger.state';
-// Cockpit Tools 账号快照（用于双向同步判定）
+
 const TOOLS_ACCOUNT_SNAPSHOT_KEY = 'antigravity.autoTrigger.toolsAccountSnapshot';
 
 /**
@@ -28,8 +28,8 @@ interface CredentialsStorage {
 }
 
 /**
- * 凭证存储服务
- * 单例模式，通过 initialize() 初始化
+ *
+ *
  * Supports multiple accounts
  */
 class CredentialStorage {
@@ -39,8 +39,8 @@ class CredentialStorage {
     private migrationTask?: Promise<void>;
 
     /**
-     * 初始化存储服务
-     * @param context VS Code 扩展上下文
+     *
+     * @param context VS Code
      */
     initialize(context: vscode.ExtensionContext): void {
         this.secretStorage = context.secrets;
@@ -55,7 +55,7 @@ class CredentialStorage {
     }
 
     /**
-     * 检查是否已初始化
+     *
      */
     private ensureInitialized(): void {
         if (!this.initialized || !this.secretStorage || !this.globalState) {
@@ -105,7 +105,7 @@ class CredentialStorage {
             await this.secretStorage!.store(CREDENTIALS_KEY, json);
             logger.info('[CredentialStorage] Credentials storage saved');
 
-            // 通过 WebSocket 通知 Cockpit Tools 数据已变更
+
             if (!options?.skipNotifyTools) {
                 this.notifyDataChanged();
             }
@@ -117,25 +117,22 @@ class CredentialStorage {
     }
     
     /**
-     * 通知 Cockpit Tools 数据已变更
+     *
      */
     private notifyDataChanged(): void {
         try {
-            // 延迟导入避免循环依赖
             import('../services/cockpitToolsWs').then(({ cockpitToolsWs }) => {
                 if (cockpitToolsWs.isConnected) {
                     cockpitToolsWs.notifyDataChanged('extension_credential_updated');
                 }
             }).catch(() => {
-                // 忽略导入错误
             });
         } catch {
-            // 忽略错误
         }
     }
     
     /**
-     * 同步账号到 Cockpit Tools（添加/更新）
+     *
      */
     private syncAccountToCockpitTools(email: string, credential: OAuthCredential): void {
         try {
@@ -150,24 +147,21 @@ class CredentialStorage {
                         expiresAt,
                     ).then(result => {
                         if (result.success) {
-                            logger.info(`[CredentialStorage] 账号已同步到 Cockpit Tools: ${email}`);
+                            logger.info(`[CredentialStorage] Account synced to Cockpit Tools: ${email}`);
                         } else {
-                            logger.warn(`[CredentialStorage] 同步账号到 Cockpit Tools 失败: ${result.message}`);
+                            logger.warn(`[CredentialStorage] Sync account to Cockpit Tools failed: ${result.message}`);
                         }
                     }).catch(() => {
-                        // 忽略错误
                     });
                 }
             }).catch(() => {
-                // 忽略导入错误
             });
         } catch {
-            // 忽略错误
         }
     }
     
     /**
-     * 从 Cockpit Tools 删除账号
+     *
      */
     private deleteAccountFromCockpitTools(email: string): void {
         try {
@@ -175,24 +169,21 @@ class CredentialStorage {
                 if (cockpitToolsWs.isConnected) {
                     cockpitToolsWs.deleteAccountByEmail(email).then(result => {
                         if (result.success) {
-                            logger.info(`[CredentialStorage] 已通知 Cockpit Tools 删除账号: ${email}`);
+                            logger.info(`[CredentialStorage] Notified Cockpit Tools to delete account: ${email}`);
                         } else {
-                            logger.warn(`[CredentialStorage] 通知 Cockpit Tools 删除账号失败: ${result.message}`);
+                            logger.warn(`[CredentialStorage] Notify Cockpit Tools delete account failed: ${result.message}`);
                         }
                     }).catch(() => {
-                        // 忽略错误
                     });
                 }
             }).catch(() => {
-                // 忽略导入错误
             });
         } catch {
-            // 忽略错误
         }
     }
     
     /**
-     * 通知 Cockpit Tools 切换账号 (暂时禁用，仅查看模式)
+     *
      */
     /*
     private syncSwitchToCockpitTools(email: string): void {
@@ -200,19 +191,17 @@ class CredentialStorage {
             import('../services/cockpitToolsWs').then(async ({ cockpitToolsWs }) => {
                 if (!cockpitToolsWs.isConnected) { return; }
                 
-                // 需要先获取账号列表找到对应的 ID
+
                 const resp = await cockpitToolsWs.getAccounts();
                 const account = resp.accounts.find(a => a.email === email);
                 
                 if (account && account.id) {
                     cockpitToolsWs.switchAccount(account.id);
-                    logger.info(`[CredentialStorage] 已通知 Cockpit Tools 切换至账号: ${email}`);
+                    logger.info(`[CredentialStorage] Notified Cockpit Tools to switch to account: ${email}`);
                 }
             }).catch(() => {
-                // 忽略错误
             });
         } catch {
-            // 忽略错误
         }
     }
     */
@@ -254,7 +243,7 @@ class CredentialStorage {
 
         logger.info(`[CredentialStorage] Account ${email} added successfully`);
         
-        // 同步到 Cockpit Tools
+
         if (!options?.skipNotifyTools) {
             this.syncAccountToCockpitTools(email, credential);
         }
@@ -307,14 +296,14 @@ class CredentialStorage {
 
         logger.info(`[CredentialStorage] Account ${email} deleted`);
         
-        // 通知 Cockpit Tools 删除账号
+
         if (!_skipNotifyTools) {
             this.deleteAccountFromCockpitTools(email);
         }
     }
 
     /**
-     * 清理 legacy key 中已删除账号的残留数据
+     *
      */
     private async cleanupLegacyKeyForDeletedEmail(email: string): Promise<void> {
         try {
@@ -338,7 +327,7 @@ class CredentialStorage {
     }
 
     /**
-     * 与远程账号列表同步（删除本地多余的账号）
+     *
      */
     async syncWithRemoteAccountList(remoteEmails: string[]): Promise<void> {
         await this.ensureMigrated();
@@ -351,7 +340,7 @@ class CredentialStorage {
         for (const email of localEmails) {
             if (!remoteEmailSet.has(email)) {
                 logger.info(`[CredentialStorage] Syncing: Account ${email} not found in remote, deleting locally`);
-                // 调用删除，跳过通知 Tools (防止循环)
+
                 await this.deleteCredentialForAccount(email, true);
                 changed = true;
             }
@@ -410,10 +399,9 @@ class CredentialStorage {
         await this.markAccountForbidden(email, false);
     }
 
-    // ============ 自动导入黑名单逻辑已移除 ============
 
     /**
-     * 获取 Cockpit Tools 账号快照（用于同步判定）
+     *
      */
     getToolsAccountSnapshot(): string[] {
         this.ensureInitialized();
@@ -421,7 +409,7 @@ class CredentialStorage {
     }
 
     /**
-     * 保存 Cockpit Tools 账号快照
+     *
      */
     async setToolsAccountSnapshot(emails: string[]): Promise<void> {
         this.ensureInitialized();
@@ -441,8 +429,7 @@ class CredentialStorage {
         // Backward compatibility: sync to legacy key so older versions can read it
         await this.syncToLegacyKey(email);
         
-        // REVERTED: 自动同步切换逻辑已回滚
-        // 现在的逻辑是：插件端切换账号仅为了查看配额，不改变客户端实际账户
+
         /*
         if (email && !skipNotifyTools) {
             this.syncSwitchToCockpitTools(email);
@@ -547,7 +534,7 @@ class CredentialStorage {
     }
 
     /**
-     * 保存 OAuth 凭证 (Legacy - saves to active account or first account)
+     *
      * @deprecated Use saveCredentialForAccount instead
      */
     async saveCredential(credential: OAuthCredential): Promise<void> {
@@ -570,12 +557,12 @@ class CredentialStorage {
 
         logger.info(`[CredentialStorage] Credential saved for ${credential.email}`);
         
-        // 同步到 Cockpit Tools
+
         this.syncAccountToCockpitTools(credential.email, credential);
     }
 
     /**
-     * 获取 OAuth 凭证 (Returns active account's credential)
+     *
      */
     async getCredential(): Promise<OAuthCredential | null> {
         await this.ensureMigrated();
@@ -596,7 +583,7 @@ class CredentialStorage {
     }
 
     /**
-     * 删除 OAuth 凭证 (Deletes all accounts)
+     *
      */
     async deleteCredential(): Promise<void> {
         this.ensureInitialized();
@@ -612,7 +599,7 @@ class CredentialStorage {
     }
 
     /**
-     * 检查是否有有效凭证
+     *
      */
     async hasValidCredential(): Promise<boolean> {
         await this.ensureMigrated();
@@ -621,7 +608,7 @@ class CredentialStorage {
             return false;
         }
 
-        // 检查是否有 refresh_token（有 refresh_token 就可以刷新 access_token）
+
         if (!credential.refreshToken) {
             return false;
         }
@@ -630,7 +617,7 @@ class CredentialStorage {
     }
 
     /**
-     * 获取授权状态 (includes all accounts)
+     *
      */
     async getAuthorizationStatus(): Promise<AuthorizationStatus> {
         await this.ensureMigrated();
@@ -656,7 +643,7 @@ class CredentialStorage {
     }
 
     /**
-     * 更新 access_token（刷新后调用）
+     *
      */
     async updateAccessToken(accessToken: string, expiresAt: string): Promise<void> {
         const activeAccount = await this.getActiveAccount();
@@ -674,7 +661,7 @@ class CredentialStorage {
 
         const storage = await this.getCredentialsStorage();
         storage.accounts[activeAccount] = credential;
-        // Token 更新不需要通知其他客户端，避免广播风暴
+
         await this.saveCredentialsStorage(storage, { skipNotifyTools: true });
 
         // Sync to legacy key for backward compatibility
@@ -684,7 +671,7 @@ class CredentialStorage {
     }
 
     /**
-     * 更新指定账号的 access_token（多账号）
+     *
      */
     async updateAccessTokenForAccount(email: string, accessToken: string, expiresAt: string): Promise<void> {
         const credential = await this.getCredentialForAccount(email);
@@ -697,7 +684,7 @@ class CredentialStorage {
 
         const storage = await this.getCredentialsStorage();
         storage.accounts[email] = credential;
-        // Token 更新不需要通知其他客户端，避免广播风暴
+
         await this.saveCredentialsStorage(storage, { skipNotifyTools: true });
 
         // Sync to legacy key if this is the active account
@@ -710,7 +697,7 @@ class CredentialStorage {
     }
 
     /**
-     * 更新指定账号的 projectId
+     *
      */
     async updateProjectIdForAccount(email: string, projectId: string): Promise<void> {
         const credential = await this.getCredentialForAccount(email);
@@ -721,14 +708,14 @@ class CredentialStorage {
         credential.projectId = projectId;
         const storage = await this.getCredentialsStorage();
         storage.accounts[email] = credential;
-        // ProjectId 更新不需要通知其他客户端，避免广播风暴
+
         await this.saveCredentialsStorage(storage, { skipNotifyTools: true });
 
         logger.info(`[CredentialStorage] ProjectId updated for ${email}`);
     }
 
     /**
-     * 保存通用状态数据（非敏感）
+     *
      */
     async saveState<T>(key: string, value: T): Promise<void> {
         this.ensureInitialized();
@@ -736,7 +723,7 @@ class CredentialStorage {
     }
 
     /**
-     * 获取通用状态数据
+     *
      */
     getState<T>(key: string, defaultValue: T): T {
         this.ensureInitialized();
@@ -744,5 +731,4 @@ class CredentialStorage {
     }
 }
 
-// 导出单例
 export const credentialStorage = new CredentialStorage();

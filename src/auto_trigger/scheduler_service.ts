@@ -1,6 +1,6 @@
 /**
  * Antigravity Cockpit - Scheduler Service
- * 调度服务：解析 cron 表达式、计算下次运行时间、管理定时任务
+ *
  */
 
 import { ScheduleConfig, CrontabParseResult } from './types';
@@ -8,16 +8,16 @@ import { CronExpressionParser } from 'cron-parser';
 import { logger } from '../shared/log_service';
 import { t } from '../shared/i18n';
 
-const MAX_TIMER_DELAY_MS = 2_147_483_647; // setTimeout 最大延迟约 24.8 天
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 const LOCAL_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 /**
- * Cron 表达式解析器
- * 支持标准 5 字段格式: 分钟 小时 日 月 星期
+ * Cron
+ *
  */
 class CronParser {
     /**
-     * 将可视化配置转换为 crontab 表达式
+     *
      */
     static configToCrontab(config: ScheduleConfig): string {
         switch (config.repeatMode) {
@@ -32,21 +32,20 @@ class CronParser {
                     config.intervalEndTime,
                 );
             default:
-                return '0 8 * * *'; // 默认每天 8:00
+                return '0 8 * * *';
         }
     }
 
     /**
-     * 每天模式转 crontab
-     * 例如: ["07:00", "12:00", "17:00"] -> "0 7,12,17 * * *"
-     * 如果分钟不同: ["07:00", "09:30"] -> "0 7 * * *;30 9 * * *" (多条表达式用分号分隔)
+     *
+     *
+     *
      */
     private static dailyToCrontab(times: string[]): string {
         if (times.length === 0) {
             return '0 8 * * *';
         }
 
-        // 按分钟分组
         const minuteGroups = new Map<number, number[]>();
         for (const time of times) {
             const [h, m] = time.split(':').map(Number);
@@ -56,21 +55,20 @@ class CronParser {
             minuteGroups.get(m)!.push(h);
         }
 
-        // 为每个分钟组生成一条 crontab 表达式
+
         const expressions: string[] = [];
         for (const [minute, hours] of minuteGroups) {
             const hourList = hours.sort((a, b) => a - b).join(',');
             expressions.push(`${minute} ${hourList} * * *`);
         }
 
-        // 用分号分隔多条表达式
         return expressions.join(';');
     }
 
     /**
-     * 每周模式转 crontab
-     * 例如: days=[1,2,3,4,5], times=["08:00"] -> "0 8 * * 1-5"
-     * 如果分钟不同: days=[1,2,3,4,5], times=["08:00", "09:30"] -> "0 8 * * 1-5;30 9 * * 1-5"
+     *
+     *
+     *
      */
     private static weeklyToCrontab(days: number[], times: string[]): string {
         if (days.length === 0 || times.length === 0) {
@@ -80,14 +78,12 @@ class CronParser {
         const sortedDays = [...days].sort((a, b) => a - b);
         let dayExpr: string;
 
-        // 检查是否是连续的
         if (this.isConsecutive(sortedDays)) {
             dayExpr = `${sortedDays[0]}-${sortedDays[sortedDays.length - 1]}`;
         } else {
             dayExpr = sortedDays.join(',');
         }
 
-        // 按分钟分组
         const minuteGroups = new Map<number, number[]>();
         for (const time of times) {
             const [h, m] = time.split(':').map(Number);
@@ -97,7 +93,7 @@ class CronParser {
             minuteGroups.get(m)!.push(h);
         }
 
-        // 为每个分钟组生成一条 crontab 表达式
+
         const expressions: string[] = [];
         for (const [minute, hours] of minuteGroups) {
             const hourList = hours.sort((a, b) => a - b).join(',');
@@ -108,8 +104,8 @@ class CronParser {
     }
 
     /**
-     * 间隔模式转 crontab
-     * 例如: interval=4, start="07:00", end="23:00" -> "0 7,11,15,19,23 * * *"
+     *
+     *
      */
     private static intervalToCrontab(
         intervalHours: number,
@@ -132,7 +128,7 @@ class CronParser {
     }
 
     /**
-     * 检查数组是否连续
+     *
      */
     private static isConsecutive(arr: number[]): boolean {
         if (arr.length <= 1) {return true;}
@@ -145,7 +141,7 @@ class CronParser {
     }
 
     /**
-     * 解析 crontab 表达式（支持多条，用分号分隔）
+     *
      */
     static parse(crontab: string): CrontabParseResult {
         try {
@@ -154,7 +150,7 @@ class CronParser {
             if (expressions.length === 0) {
                 return {
                     valid: false,
-                    error: '无效的 crontab 格式',
+                    error: 'Invalid crontab format',
                 };
             }
 
@@ -165,7 +161,7 @@ class CronParser {
                 if (parts.length !== 5) {
                     return {
                         valid: false,
-                        error: '无效的 crontab 格式，需要 5 个字段',
+                        error: 'Invalid crontab format, requires 5 fields',
                     };
                 }
 
@@ -174,10 +170,8 @@ class CronParser {
                 allDescriptions.push(desc);
             }
 
-            // 获取合并后的下次运行时间
             const nextRuns = this.getNextRuns(crontab, 5);
 
-            // 合并描述（去重）
             const uniqueDescs = [...new Set(allDescriptions)];
             const description = uniqueDescs.length === 1 
                 ? uniqueDescs[0]
@@ -198,7 +192,7 @@ class CronParser {
     }
 
     /**
-     * 生成人类可读描述
+     *
      */
     private static generateDescription(
         minute: string,
@@ -217,22 +211,20 @@ class CronParser {
 
         const parts: string[] = [];
 
-        // 时间描述
         if (minute === '0' && hour === '*') {
             parts.push(t('autoTrigger.desc.hourly'));
         } else if (hour.includes(',')) {
-            // 多个小时，相同分钟：如 "0 7,12,17 * * *" -> "每天 07:00, 12:00, 17:00"
+
             const hours = hour.split(',');
             const min = minute.padStart(2, '0');
             const timeList = hours.map(h => `${h.padStart(2, '0')}:${min}`).join(', ');
             parts.push(t('autoTrigger.desc.dailyAt', { times: timeList }));
         } else if (hour !== '*' && minute !== '*') {
-            // 单个时间点：如 "30 9 * * *" -> "每天 09:30"
+
             const timeStr = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
             parts.push(t('autoTrigger.desc.dailyAt', { times: timeStr }));
         }
 
-        // 星期描述
         if (dayOfWeek !== '*') {
             const dayNames = [
                 t('common.weekday.sun'), t('common.weekday.mon'), t('common.weekday.tue'), 
@@ -253,7 +245,7 @@ class CronParser {
     }
 
     /**
-     * 展开 cron 字段为数字数组
+     *
      */
     private static expandField(field: string, min: number, max: number): number[] {
         if (field === '*') {
@@ -282,8 +274,8 @@ class CronParser {
     }
 
     /**
-     * 计算接下来 n 次运行时间
-     * 支持多条 crontab 表达式（用分号分隔）
+     *
+     *
      */
     static getNextRuns(crontab: string, count: number): Date[] {
         try {
@@ -296,13 +288,11 @@ class CronParser {
                     tz: LOCAL_TIMEZONE,
                 });
 
-                // 从每条表达式获取足够多的下次运行时间
                 for (let i = 0; i < count; i++) {
                     allDates.push(interval.next().toDate());
                 }
             }
 
-            // 排序并去重（按时间戳去重）
             const uniqueDates = Array.from(
                 new Map(allDates.map(d => [d.getTime(), d])).values(),
             );
@@ -316,7 +306,7 @@ class CronParser {
 }
 
 /**
- * 调度服务
+ *
  */
 class SchedulerService {
     private timer?: ReturnType<typeof setTimeout>;
@@ -324,7 +314,7 @@ class SchedulerService {
     private onTrigger?: () => Promise<void>;
 
     /**
-     * 设置调度配置
+     *
      */
     setSchedule(config: ScheduleConfig, onTrigger: () => Promise<void>): void {
         this.schedule = config;
@@ -338,7 +328,7 @@ class SchedulerService {
     }
 
     /**
-     * 启动调度器
+     *
      */
     start(): void {
         if (!this.schedule || !this.onTrigger) {
@@ -356,7 +346,7 @@ class SchedulerService {
     }
 
     /**
-     * 停止调度器
+     *
      */
     stop(): void {
         if (this.timer) {
@@ -367,7 +357,7 @@ class SchedulerService {
     }
 
     /**
-     * 获取下次运行时间
+     *
      */
     getNextRunTime(): Date | null {
         if (!this.schedule || !this.schedule.enabled) {
@@ -380,7 +370,7 @@ class SchedulerService {
     }
 
     /**
-     * 解析配置并返回描述
+     *
      */
     describeSchedule(config: ScheduleConfig): string {
         const crontab = config.crontab || CronParser.configToCrontab(config);
@@ -389,21 +379,21 @@ class SchedulerService {
     }
 
     /**
-     * 验证 crontab 表达式
+     *
      */
     validateCrontab(crontab: string): CrontabParseResult {
         return CronParser.parse(crontab);
     }
 
     /**
-     * 将配置转换为 crontab
+     *
      */
     configToCrontab(config: ScheduleConfig): string {
         return CronParser.configToCrontab(config);
     }
 
     /**
-     * 调度下次运行
+     *
      */
     private scheduleNextRun(): void {
         if (!this.schedule || !this.onTrigger) {return;}
@@ -416,7 +406,6 @@ class SchedulerService {
 
         const delay = nextRun.getTime() - Date.now();
         if (delay < 0) {
-            // 如果已经过了，下一分钟重新计算
             this.timer = setTimeout(() => this.scheduleNextRun(), 60000);
             return;
         }
@@ -438,7 +427,6 @@ class SchedulerService {
                 logger.error(`[SchedulerService] Trigger failed: ${err.message}`);
             }
 
-            // 调度下一次（如果仍然启用）
             if (this.schedule && this.schedule.enabled) {
                 this.scheduleNextRun();
             } else {
@@ -449,6 +437,5 @@ class SchedulerService {
     }
 }
 
-// 导出单例和工具类
 export const schedulerService = new SchedulerService();
 export { CronParser };

@@ -5,7 +5,6 @@ export function createAnnouncementModule({
     switchToTab,
     escapeHtml,
 }) {
-    // 公告状态
     let announcementState = {
         announcements: [],
         unreadIds: [],
@@ -14,22 +13,21 @@ export function createAnnouncementModule({
     let currentPopupAnnouncement = null;
     let shownPopupIds = new Set();
 
-    // 验证并清理 URL，防止 javascript: 等危险协议
+
     function sanitizeUrl(url) {
         if (!url || typeof url !== 'string') return '';
         const trimmed = url.trim();
-        // 只允许 http, https, data (用于图片) 协议
+
         if (/^(https?:|data:image\/)/i.test(trimmed)) {
             return trimmed;
         }
-        // 相对路径也允许
         if (trimmed.startsWith('/') || trimmed.startsWith('./')) {
             return trimmed;
         }
         return '';
     }
 
-    // 安全的 CSS class 名称
+
     function sanitizeClassName(value) {
         if (!value || typeof value !== 'string') return '';
         return value.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -142,19 +140,16 @@ export function createAnnouncementModule({
             container.appendChild(item);
         });
 
-        // 绑定点击事件
         container.querySelectorAll('.announcement-item').forEach(item => {
             item.addEventListener('click', () => {
                 const id = item.dataset.id;
                 const ann = announcements.find(a => a.id === id);
                 if (ann) {
-                    // 若未读，点击即标记已读
                     if (announcementState.unreadIds.includes(id)) {
                         vscode.postMessage({
                             command: 'announcement.markAsRead',
                             id: id
                         });
-                        // 乐观更新本地状态
                         announcementState.unreadIds = announcementState.unreadIds.filter(uid => uid !== id);
                         updateAnnouncementBadge();
                         item.classList.remove('unread');
@@ -208,11 +203,9 @@ export function createAnnouncementModule({
         }
         if (popupTitle) popupTitle.textContent = ann.title;
 
-        // 渲染内容和图片
         if (popupContent) {
             let contentHtml = `<div class="announcement-text">${escapeHtml(ann.content).replace(/\n/g, '<br>')}</div>`;
 
-            // 如果有图片，渲染图片区域（带骨架屏占位符）
             if (ann.images && ann.images.length > 0) {
                 contentHtml += '<div class="announcement-images">';
                 for (const img of ann.images) {
@@ -236,14 +229,11 @@ export function createAnnouncementModule({
 
             popupContent.innerHTML = contentHtml;
 
-            // 绑定图片加载事件
             popupContent.querySelectorAll('.announcement-image').forEach(imgEl => {
-                // 图片加载完成
                 imgEl.addEventListener('load', () => {
                     imgEl.classList.add('loaded');
                 });
 
-                // 图片加载失败
                 imgEl.addEventListener('error', () => {
                     const item = imgEl.closest('.announcement-image-item');
                     if (item) {
@@ -262,7 +252,6 @@ export function createAnnouncementModule({
                     }
                 });
 
-                // 点击放大
                 imgEl.addEventListener('click', () => {
                     const url = imgEl.getAttribute('data-preview-url');
                     if (url) showImagePreview(url);
@@ -270,7 +259,6 @@ export function createAnnouncementModule({
             });
         }
 
-        // 处理操作按钮
         if (ann.action && ann.action.label) {
             if (popupAction) {
                 popupAction.textContent = ann.action.label;
@@ -282,16 +270,14 @@ export function createAnnouncementModule({
             if (popupGotIt) popupGotIt.classList.remove('hidden');
         }
 
-        // 处理返回/关闭按钮显示
         if (fromList) {
             if (backBtn) {
                 backBtn.classList.remove('hidden');
                 backBtn.onclick = () => {
-                    closeAnnouncementPopup(true); // 跳过动画
-                    openAnnouncementList(); // 返回列表
+                    closeAnnouncementPopup(true);
+                    openAnnouncementList();
                 };
             }
-            // 从列表进入时，关闭也跳过动画
             if (closeBtn) {
                 closeBtn.onclick = () => {
                     closeAnnouncementPopup(true);
@@ -299,7 +285,6 @@ export function createAnnouncementModule({
             }
         } else {
             if (backBtn) backBtn.classList.add('hidden');
-            // 自动弹窗时，关闭使用动画
             if (closeBtn) {
                 closeBtn.onclick = () => {
                     closeAnnouncementPopup();
@@ -331,23 +316,18 @@ export function createAnnouncementModule({
         const bellBtn = document.getElementById('announcement-btn');
 
         if (modal && modalContent && bellBtn && !skipAnimation) {
-            // 获取铃铛按钮的位置
             const bellRect = bellBtn.getBoundingClientRect();
             const contentRect = modalContent.getBoundingClientRect();
 
-            // 计算目标位移
             const targetX = bellRect.left + bellRect.width / 2 - (contentRect.left + contentRect.width / 2);
             const targetY = bellRect.top + bellRect.height / 2 - (contentRect.top + contentRect.height / 2);
 
-            // 添加飞向铃铛的动画
             modalContent.style.transition = 'transform 0.4s ease-in, opacity 0.4s ease-in';
             modalContent.style.transform = `translate(${targetX}px, ${targetY}px) scale(0.1)`;
             modalContent.style.opacity = '0';
 
-            // 铃铛抖动效果
             bellBtn.classList.add('bell-shake');
 
-            // 动画结束后隐藏模态框并重置样式
             setTimeout(() => {
                 modal.classList.add('hidden');
                 modalContent.style.transition = '';
@@ -370,7 +350,6 @@ export function createAnnouncementModule({
         if (currentPopupAnnouncement && currentPopupAnnouncement.action) {
             const action = currentPopupAnnouncement.action;
 
-            // 执行操作
             if (action.type === 'tab') {
                 switchToTab(action.target);
             } else if (action.type === 'url') {
@@ -396,22 +375,18 @@ export function createAnnouncementModule({
         updateAnnouncementBadge();
         renderAnnouncementList();
 
-        // 检查是否需要弹出公告（只弹未弹过的）
         if (state.popupAnnouncement && !shownPopupIds.has(state.popupAnnouncement.id)) {
             shownPopupIds.add(state.popupAnnouncement.id);
-            // 延迟弹出，等待页面渲染完成
             setTimeout(() => {
                 showAnnouncementPopup(state.popupAnnouncement);
             }, 600);
         }
     }
 
-    // ============ 图片预览 ============
 
     function showImagePreview(imageUrl) {
         const safeUrl = sanitizeUrl(imageUrl);
         if (!safeUrl) return;
-        // 创建预览遮罩
         const overlay = document.createElement('div');
         overlay.className = 'image-preview-overlay';
         const previewContainer = document.createElement('div');
@@ -425,7 +400,6 @@ export function createAnnouncementModule({
         previewContainer.append(img, hint);
         overlay.appendChild(previewContainer);
 
-        // 点击关闭
         overlay.addEventListener('click', () => {
             overlay.classList.add('closing');
             setTimeout(() => overlay.remove(), 200);
@@ -433,7 +407,6 @@ export function createAnnouncementModule({
 
         document.body.appendChild(overlay);
 
-        // 触发动画
         requestAnimationFrame(() => overlay.classList.add('visible'));
     }
 

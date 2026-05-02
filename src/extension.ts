@@ -1,6 +1,5 @@
 /**
- * Antigravity Cockpit - 扩展入口
- * VS Code 扩展的主入口点
+ * Antigravity Cockpit - Extension Entry Point
  */
 
 import * as vscode from 'vscode';
@@ -43,7 +42,6 @@ import {
 import { cockpitToolsSyncEvents } from './services/cockpitToolsSync';
 import { accountSwitchService, AccountSwitchMode, AccountSwitchModeInput } from './services/accountSwitchService';
 
-// 全局模块实例
 let hunter: ProcessHunter;
 let reactor: ReactorCore;
 let hud: CockpitHUD;
@@ -59,17 +57,12 @@ let _telemetryController: TelemetryController;
 let systemOnline = false;
 let lastQuotaSource: 'local' | 'authorized';
 
-// 自动重试计数器
 let autoRetryCount = 0;
 const MAX_AUTO_RETRY = 3;
 const AUTO_RETRY_DELAY_MS = 5000;
 const OFFICIAL_ANTIGRAVITY_EXTENSION_ID = 'google.antigravity';
 
-/**
- * 扩展激活入口
- */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    // 初始化日志
     logger.init();
     logOfficialAntigravityIdeVersion();
     await configService.initialize(context);
@@ -78,11 +71,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const replacedRefs = Object.values(modelPrefMigrationSummary.replacementCounts)
             .reduce((sum, count) => sum + count, 0);
         void vscode.window.showInformationMessage(
-            `部分已下线模型已自动迁移到新版本（更新 ${replacedRefs} 处引用：${modelPrefMigrationSummary.changedFields.join(', ')}）。`,
+            `Some retired models have been automatically migrated to new versions (updated ${replacedRefs} references: ${modelPrefMigrationSummary.changedFields.join(', ')}).`,
         );
     }
 
-    // 记录当前实例的 user-data-dir（用于读取正确的 state.vscdb）
     try {
         const userDataDir = path.resolve(context.globalStorageUri.fsPath, '..', '..', '..');
         setAntigravityRemoteName(vscode.env.remoteName ?? null);
@@ -92,30 +84,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         logger.warn(`[Startup] Failed to resolve user-data-dir: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 应用保存的语言设置
     const savedLanguage = configService.getConfig().language;
     if (savedLanguage) {
         i18n.applyLanguageSetting(savedLanguage);
     }
 
-    // 启动时同步：读取共享配置文件，与本地配置比较时间戳后合并
     try {
         const { mergeSettingOnStartup } = await import('./services/syncSettings');
         const mergedLanguage = mergeSettingOnStartup('language', savedLanguage || 'auto');
         if (mergedLanguage) {
-            logger.info(`[SyncSettings] 启动时合并语言设置: ${savedLanguage} -> ${mergedLanguage}`);
+            logger.info(`[SyncSettings] Merged language setting on startup: ${savedLanguage} -> ${mergedLanguage}`);
             await configService.updateConfig('language', mergedLanguage);
             i18n.applyLanguageSetting(mergedLanguage);
         }
     } catch (err) {
-        logger.debug(`[SyncSettings] 启动时同步失败: ${err instanceof Error ? err.message : String(err)}`);
+        logger.debug(`[SyncSettings] Startup sync failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 获取插件版本号
     const packageJson = await import('../package.json');
     const version = packageJson.version || 'unknown';
 
-    // 版本升级时重置可见模型（visibleModels 置空，显示全部）
     const lastVersion = context.globalState.get<string>('state.lastVersion');
     if (lastVersion !== version) {
         logger.info(`[Startup] Version changed (${lastVersion ?? 'none'} -> ${version}), reset visibleModels`);
@@ -125,7 +113,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     logger.info(`Antigravity Cockpit v${version} - Systems Online`);
 
-    // 初始化核心模块
     hunter = new ProcessHunter();
     reactor = new ReactorCore();
     accountsRefreshService = new AccountsRefreshService(reactor);
@@ -133,37 +120,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     quickPickView = new QuickPickView();
     lastQuotaSource = configService.getConfig().quotaSource === 'authorized' ? 'authorized' : 'local';
 
-    // 注册账号总览命令
     context.subscriptions.push(
         vscode.commands.registerCommand('agCockpit.openAccountsOverview', async () => {
-            // 保存视图状态：用户选择了账号总览
             await configService.setStateValue('lastActiveView', 'accountsOverview');
-            // 切换到 HUD 的账号总览 Tab
             vscode.commands.executeCommand('agCockpit.open', { tab: 'accounts' });
         }),
     );
 
-    // 注册从账号总览返回 Dashboard 的命令
     context.subscriptions.push(
         vscode.commands.registerCommand('agCockpit.backToDashboard', async () => {
-            // 保存视图状态：用户选择了返回 Dashboard
             await configService.setStateValue('lastActiveView', 'dashboard');
-            // 打开 Dashboard（使用 forceView 确保打开 Dashboard 而不是根据状态判断）
             setTimeout(() => {
                 vscode.commands.executeCommand('agCockpit.open', { tab: 'quota', forceView: 'dashboard' });
             }, 100);
         }),
     );
 
-    // 注册 Webview Panel Serializer，确保插件重载后能恢复 panel 引用
     context.subscriptions.push(hud.registerSerializer());
 
-    // 设置 QuickPick 刷新回调
     quickPickView.onRefresh(() => {
         reactor.syncTelemetry();
     });
 
-    // 初始化状态栏控制器
     statusBar = new StatusBarController(context);
 
     const syncStatusBarFromAccountsCache = (): void => {
@@ -189,22 +167,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
     );
 
-    // 定义重试/启动回调
     const onRetry = async () => {
         systemOnline = false;
         await bootSystems();
     };
 
-    // 初始化其他控制器
     _telemetryController = new TelemetryController(reactor, statusBar, hud, quickPickView, onRetry);
     _messageController = new MessageController(context, hud, reactor, onRetry, accountsRefreshService);
     _commandController = new CommandController(context, hud, quickPickView, reactor, onRetry);
 
-    // 初始化自动触发控制器
     autoTriggerController.initialize(context);
 
-    // 启动时自动同步到客户端当前登录账户
-    // 必须同步等待完成，避免与后续操作产生竞态条件
     try {
         const syncResult = await autoTriggerController.syncToClientAccountOnStartup();
         if (syncResult === 'switched') {
@@ -214,10 +187,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         logger.debug(`[Startup] Account sync skipped: ${err instanceof Error ? err.message : err}`);
     }
 
-    // 初始化公告服务
     announcementService.initialize(context);
 
-    // 初始化 Account Tree View
+
     const accountTreeProvider = new AccountTreeProvider(accountsRefreshService);
     const accountTreeView = vscode.window.createTreeView('agCockpit.accountTree', {
         treeDataProvider: accountTreeProvider,
@@ -377,7 +349,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                             cancelToken,
                         );
 
-                        const skippedCount = result.skipped.filter(s => s.reason !== '用户取消').length;
+                        const skippedCount = result.skipped.filter(s => s.reason !== 'user_cancelled').length;
                         const parts: string[] = [];
                         if (result.imported > 0) parts.push(`Synced ${result.imported} account(s)`);
                         if (skippedCount > 0) parts.push(`${skippedCount} skipped`);
@@ -400,7 +372,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
     );
 
-    // 连接 Cockpit Tools WebSocket
+
     cockpitToolsWs.connect();
     void accountsRefreshService.refreshOnStartup();
 
@@ -442,31 +414,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return mode;
     };
     
-    // WebSocket 连接成功后刷新账号树
+
     cockpitToolsWs.on('connected', () => {
-        logger.info('[WS] 连接成功，刷新账号列表');
+        logger.info('[WS] Connected, refreshing account list');
         void accountsRefreshService.refresh({ reason: 'ws.connected' });
     });
-    
-    // 监听数据变更事件
+
     cockpitToolsWs.on('dataChanged', async (payload: { source?: string }) => {
         const source = payload?.source ?? 'unknown';
-        logger.info(`[WS] 收到数据变更通知: ${source}`);
-        // 只同步账号列表，不刷新配额（配额由定时刷新和手动刷新负责）
+        logger.info(`[WS] Received data change notification: ${source}`);
         await accountsRefreshService.refresh({ forceSync: true, skipQuotaRefresh: true, reason: `dataChanged:${source}` });
-        // 通知 Webview 刷新账号数据
+
         hud.sendMessage({ type: 'refreshAccounts' });
     });
-    
+
     cockpitToolsWs.on('accountSwitched', async (payload: { email: string }) => {
-        logger.info(`[WS] 账号已切换: ${payload.email}`);
+        logger.info(`[WS] Account switched: ${payload.email}`);
         
-        // 同步本地 Active Account 状态，跳过通知 Tools
+
         await credentialStorage.setActiveAccount(payload.email, true);
 
         await accountsRefreshService.refresh({ reason: 'ws.accountSwitched' });
         reactor.syncTelemetry();
-        // 通知 Webview 刷新
+
         hud.sendMessage({ type: 'accountSwitched', email: payload.email });
         vscode.window.showInformationMessage(t('ws.accountSwitched', { email: payload.email }));
     });
@@ -485,17 +455,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 const sent = cockpitToolsWs.sendPluginSetSwitchModeResponse({
                     request_id: requestId,
                     success: false,
-                    error_message: `非法 switch_mode: ${String(payload.switch_mode ?? 'undefined')}`,
+                    error_message: `Invalid switch_mode: ${String(payload.switch_mode ?? 'undefined')}`,
                     finished_at: finishedAt,
                 });
                 if (!sent) {
-                    logger.warn(`[WS] 回传切换方式失败结果失败: request_id=${requestId ?? 'none'}`);
+                    logger.warn(`[WS] Failed to send switch mode failure response: request_id=${requestId ?? 'none'}`);
                 }
                 return;
             }
 
             await accountSwitchService.setMode(requestedMode);
-            logger.info(`[WS] 已应用外部切换方式: mode=${requestedMode}, request_id=${requestId ?? 'none'}`);
+            logger.info(`[WS] Applied external switch mode: mode=${requestedMode}, request_id=${requestId ?? 'none'}`);
             const sent = cockpitToolsWs.sendPluginSetSwitchModeResponse({
                 request_id: requestId,
                 success: true,
@@ -503,12 +473,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 finished_at: finishedAt,
             });
             if (!sent) {
-                logger.warn(`[WS] 回传切换方式成功结果失败: request_id=${requestId ?? 'none'}`);
+                logger.warn(`[WS] Failed to send switch mode success response: request_id=${requestId ?? 'none'}`);
             }
         } catch (error) {
             const finishedAt = new Date().toISOString();
             const err = error instanceof Error ? error.message : String(error);
-            logger.error(`[WS] 处理外部切换方式请求失败: request_id=${requestId ?? 'none'}, error=${err}`);
+            logger.error(`[WS] Failed to process external switch mode request: request_id=${requestId ?? 'none'}, error=${err}`);
             const sent = cockpitToolsWs.sendPluginSetSwitchModeResponse({
                 request_id: requestId,
                 success: false,
@@ -516,7 +486,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 finished_at: finishedAt,
             });
             if (!sent) {
-                logger.warn(`[WS] 回传切换方式异常结果失败: request_id=${requestId ?? 'none'}`);
+                logger.warn(`[WS] Failed to send switch mode error response: request_id=${requestId ?? 'none'}`);
             }
         }
     });
@@ -535,7 +505,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             };
 
             logger.info(
-                `[WS] 执行外部切号: request_id=${requestId ?? 'none'}, target=${executionRequest.targetEmail || 'none'}, mode=${executionRequest.switchMode}, triggerType=${executionRequest.triggerType}, source=${executionRequest.triggerSource ?? 'none'}`,
+                `[WS] Executing external account switch: request_id=${requestId ?? 'none'}, target=${executionRequest.targetEmail || 'none'}, mode=${executionRequest.switchMode}, triggerType=${executionRequest.triggerType}, source=${executionRequest.triggerSource ?? 'none'}`,
             );
             const execution = await _messageController.executeAccountSwitch(executionRequest);
             const sent = cockpitToolsWs.sendPluginSwitchAccountResponse({
@@ -552,14 +522,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             });
             if (!sent) {
                 logger.warn(
-                    `[WS] 回传外部切号结果失败: request_id=${execution.requestId ?? 'none'}, execution_id=${execution.executionId}`,
+                    `[WS] Failed to send external switch result: request_id=${execution.requestId ?? 'none'}, execution_id=${execution.executionId}`,
                 );
             }
         } catch (error) {
             const err = error instanceof Error ? error.message : String(error);
             const finishedAt = new Date().toISOString();
             const fallbackExecutionId = `switch_${Date.now()}_failed`;
-            logger.error(`[WS] 执行外部切号异常: request_id=${requestId ?? 'none'}, error=${err}`);
+            logger.error(`[WS] External account switch error: request_id=${requestId ?? 'none'}, error=${err}`);
             const sent = cockpitToolsWs.sendPluginSwitchAccountResponse({
                 execution_id: fallbackExecutionId,
                 request_id: requestId,
@@ -573,7 +543,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 finished_at: finishedAt,
             });
             if (!sent) {
-                logger.warn(`[WS] 回传外部切号异常结果失败: request_id=${requestId ?? 'none'}`);
+                logger.warn(`[WS] Failed to send external switch error response: request_id=${requestId ?? 'none'}`);
             }
         }
     });
@@ -592,7 +562,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             return;
         }
 
-        logger.info(`[WS] 语言已同步: ${normalizedLanguage}`);
+        logger.info(`[WS] Language synced: ${normalizedLanguage}`);
         await configService.updateConfig('language', normalizedLanguage);
         const localeChanged = i18n.applyLanguageSetting(normalizedLanguage);
         if (localeChanged) {
@@ -616,16 +586,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             });
             vscode.window.showInformationMessage(t('ws.wakeupOverride'));
         } catch (err) {
-            logger.warn(`[WS] 关闭插件唤醒失败: ${err instanceof Error ? err.message : String(err)}`);
+            logger.warn(`[WS] Failed to disable plugin wakeup: ${err instanceof Error ? err.message : String(err)}`);
         }
     });
 
-    // 监听配置变化
     context.subscriptions.push(
         configService.onConfigChange(handleConfigChange),
     );
 
-    // 启动系统
     await bootSystems();
 
     logger.info('Antigravity Cockpit Fully Operational');
@@ -651,7 +619,7 @@ function logOfficialAntigravityIdeVersion(): void {
 }
 
 /**
- * 处理配置变化
+ *
  */
 async function handleConfigChange(config: CockpitConfig): Promise<void> {
     logger.debug('Configuration changed', config);
@@ -663,24 +631,24 @@ async function handleConfigChange(config: CockpitConfig): Promise<void> {
         lastQuotaSource = currentQuotaSource;
     }
 
-    // 仅当刷新间隔变化时重启 Reactor
+
     const newInterval = configService.getRefreshIntervalMs();
 
-    // 如果 Reactor 已经在运行且间隔没有变化，则忽略
+
     if (systemOnline && reactor.currentInterval !== newInterval) {
         logger.info(`Refresh interval changed from ${reactor.currentInterval}ms to ${newInterval}ms. Restarting Reactor.`);
         reactor.startReactor(newInterval);
     }
 
-    // 对于任何配置变更，立即重新处理最近的数据以更新 UI（如状态栏格式变化）
-    // 这确保存储在 lastSnapshot 中的数据使用新配置重新呈现
+
+
     if (!quotaSourceChanged) {
         reactor.reprocess();
     }
 }
 
 /**
- * 启动系统
+ *
  */
 async function bootSystems(): Promise<void> {
     if (systemOnline) {
@@ -717,11 +685,10 @@ async function bootSystems(): Promise<void> {
             reactor.engage(info.connectPort, info.csrfToken, hunter.getLastDiagnostics());
             reactor.startReactor(configService.getRefreshIntervalMs());
             systemOnline = true;
-            autoRetryCount = 0; // 重置计数器
+            autoRetryCount = 0;
             statusBar.setReady();
             logger.info('System boot successful');
         } else {
-            // 自动重试机制
             if (autoRetryCount < MAX_AUTO_RETRY) {
                 autoRetryCount++;
                 logger.info(`Auto-retry ${autoRetryCount}/${MAX_AUTO_RETRY} in ${AUTO_RETRY_DELAY_MS / 1000}s...`);
@@ -731,7 +698,7 @@ async function bootSystems(): Promise<void> {
                     bootSystems();
                 }, AUTO_RETRY_DELAY_MS);
             } else {
-                autoRetryCount = 0; // 重置计数器
+                autoRetryCount = 0;
                 handleOfflineState();
             }
         }
@@ -739,7 +706,6 @@ async function bootSystems(): Promise<void> {
         const error = e instanceof Error ? e : new Error(String(e));
         logger.error('Boot Error', error);
 
-        // 自动重试机制（异常情况也自动重试）
         if (autoRetryCount < MAX_AUTO_RETRY) {
             autoRetryCount++;
             logger.info(`Auto-retry ${autoRetryCount}/${MAX_AUTO_RETRY} after error in ${AUTO_RETRY_DELAY_MS / 1000}s...`);
@@ -749,10 +715,9 @@ async function bootSystems(): Promise<void> {
                 bootSystems();
             }, AUTO_RETRY_DELAY_MS);
         } else {
-            autoRetryCount = 0; // 重置计数器
+            autoRetryCount = 0;
             statusBar.setError(error.message);
 
-            // 显示系统弹框
             vscode.window.showErrorMessage(
                 `${t('notify.bootFailed')}: ${error.message}`,
                 t('help.retry'),
@@ -769,7 +734,7 @@ async function bootSystems(): Promise<void> {
 }
 
 /**
- * 处理离线状态
+ *
  */
 function handleOfflineState(): void {
     if (configService.getConfig().quotaSource === 'authorized') {
@@ -778,7 +743,6 @@ function handleOfflineState(): void {
     }
     statusBar.setOffline();
 
-    // 显示带操作按钮的消息
     vscode.window.showErrorMessage(
         t('notify.offline'),
         t('help.retry'),
@@ -791,7 +755,7 @@ function handleOfflineState(): void {
         }
     });
 
-    // 更新 Dashboard 显示离线状态
+
     hud.refreshView(ReactorCore.createOfflineSnapshot(t('notify.offline')), {
         showPromptCredits: false,
         pinnedModels: [],
@@ -809,12 +773,12 @@ function handleOfflineState(): void {
 }
 
 /**
- * 扩展停用
+ *
  */
 export async function deactivate(): Promise<void> {
     logger.info('Antigravity Cockpit: Shutting down...');
 
-    // 断开 WebSocket 连接
+
     cockpitToolsWs.disconnect();
 
     reactor?.shutdown();

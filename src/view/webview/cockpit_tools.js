@@ -20,9 +20,7 @@
 
     const vscode = window.__vscodeApi || (window.__vscodeApi = acquireVsCodeApi());
 
-    // -----------------------------------------------------------------------
     // State
-    // -----------------------------------------------------------------------
 
     let snapshot = null;
     let searchQuery = '';
@@ -30,15 +28,11 @@
     let isLoading = true;
     let lastLoadedAt = null;
 
-    // -----------------------------------------------------------------------
     // DOM refs — resolved lazily after the tab becomes visible
-    // -----------------------------------------------------------------------
 
     function el(id) { return document.getElementById(id); }
 
-    // -----------------------------------------------------------------------
     // Utilities
-    // -----------------------------------------------------------------------
 
     function formatRelativeTime(tsMs) {
         if (!tsMs) return '';
@@ -83,9 +77,7 @@
         }
     }
 
-    // -----------------------------------------------------------------------
     // Render
-    // -----------------------------------------------------------------------
 
     function getFilteredSections() {
         if (!snapshot) return [];
@@ -233,9 +225,7 @@
         container.innerHTML = renderSections(sections);
     }
 
-    // -----------------------------------------------------------------------
     // Actions
-    // -----------------------------------------------------------------------
 
     function requestRefresh() {
         isLoading = true;
@@ -247,9 +237,7 @@
         vscode.postMessage({ command: 'cockpitToolsImportCodex' });
     }
 
-    // -----------------------------------------------------------------------
     // Event listeners
-    // -----------------------------------------------------------------------
 
     function setupListeners() {
         const refreshBtn = el('ct-refresh-btn');
@@ -275,9 +263,7 @@
         }
     }
 
-    // -----------------------------------------------------------------------
     // Message handler (extension → webview)
-    // -----------------------------------------------------------------------
 
     window.addEventListener('message', function (event) {
         const msg = event.data;
@@ -303,9 +289,7 @@
         }
     });
 
-    // -----------------------------------------------------------------------
     // Initialise when DOM is ready
-    // -----------------------------------------------------------------------
 
     function init() {
         setupListeners();

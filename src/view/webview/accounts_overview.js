@@ -1,6 +1,6 @@
 /**
- * Antigravity Cockpit - 账号总览页面 JavaScript
- * 对齐 Cockpit Tools 账号总览交互
+ * Antigravity Cockpit -
+ *
  */
 
 // eslint-disable-next-line no-redeclare
@@ -21,7 +21,7 @@
     let sortDirection = 'desc'; // 'asc' or 'desc'
     let viewMode = 'grid';
     let sortGroups =  [];
-    const resetSortPrefix = 'reset:'; // 重置时间排序前缀
+    const resetSortPrefix = 'reset:';
     const GROUP_COLOR_PALETTE = ['#8b5cf6', '#3b82f6', '#14b8a6', '#f59e0b', '#ef4444', '#22c55e'];
     let currentConfig = {};
     let isInitialLoading = true;
@@ -101,9 +101,7 @@
     let confirmCallback = null;
     let currentQuotaEmail = null;
 
-    // =====================================================================
     // Utilities
-    // =====================================================================
 
     function getString(key, fallback) {
         return strings[key] || fallback;
@@ -123,22 +121,21 @@
             .replace(/'/g, '&#039;');
     }
 
-    // 验证并清理 URL，防止 javascript: 等危险协议
+
     function sanitizeUrl(url) {
         if (!url || typeof url !== 'string') return '';
         const trimmed = url.trim();
-        // 只允许 http, https, data (用于图片) 协议
+
         if (/^(https?:|data:image\/)/i.test(trimmed)) {
             return trimmed;
         }
-        // 相对路径也允许
         if (trimmed.startsWith('/') || trimmed.startsWith('./')) {
             return trimmed;
         }
         return '';
     }
 
-    // 安全的 CSS class 名称
+
     function sanitizeClassName(value) {
         if (!value || typeof value !== 'string') return '';
         return value.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -347,17 +344,17 @@
     }
 
     /**
-     * 获取分组的重置时间戳 (Unix timestamp in milliseconds)
-     * @param {object} account - 账号对象
-     * @param {string} groupId - 分组 ID
-     * @returns {number|null} - 重置时间戳,如果无法解析则返回 null
+     *
+     * @param {object} account -
+     * @param {string} groupId -
+     * @returns {number|null} -
      */
     function getGroupResetTimestamp(account, groupId) {
         if (!account.groups) return null;
         const group = account.groups.find(g => g.groupId === groupId);
         if (!group || !group.resetTime) return null;
         
-        // resetTime 格式示例: "2024-02-05T12:00:00Z" 或其他 ISO 格式
+
         try {
             const timestamp = new Date(group.resetTime).getTime();
             return isNaN(timestamp) ? null : timestamp;
@@ -445,9 +442,7 @@
         }, 1000);
     }
 
-    // =====================================================================
     // Rendering
-    // =====================================================================
 
     function updateSortOptions() {
         const groupMap = new Map();
@@ -463,17 +458,14 @@
             .sort((a, b) => a.name.localeCompare(b.name));
 
         const currentValue = elements.sortSelect.value;
-        // 添加基础排序选项
         elements.sortSelect.innerHTML = `
             <option value="overall">${escapeHtml(getString('sortOverall', 'Overall Quota'))}</option>
             <option value="last_updated">${escapeHtml(getString('sortByLastUpdated', 'By Update Time'))}</option>
         `;
-        // 添加分组配额排序选项
         sortGroups.forEach(group => {
             const selected = currentValue === group.id ? 'selected' : '';
             elements.sortSelect.innerHTML += `<option value="${escapeHtml(group.id)}" ${selected}>${escapeHtml(getString('sortByGroup', 'By {group} Quota').replace('{group}', group.name))}</option>`;
         });
-        // 添加分组重置时间排序选项
         sortGroups.forEach(group => {
             const resetValue = `${resetSortPrefix}${group.id}`;
             const selected = currentValue === resetValue ? 'selected' : '';
@@ -497,18 +489,15 @@
             else if (tier === 'ULTRA') counts.ULTRA += 1;
         });
 
-        // 检查是否有任何有效的等级信息
         const hasTierInfo = counts.PRO > 0 || counts.ULTRA > 0;
         const filterContainer = elements.filterSelect?.parentElement;
 
         if (!hasTierInfo) {
-            // 没有等级信息，隐藏筛选下拉框容器并重置为全部
             if (filterContainer) filterContainer.classList.add('hidden');
             filterType = 'all';
             return;
         }
 
-        // 有等级信息，显示筛选下拉框容器
         if (filterContainer) filterContainer.classList.remove('hidden');
         elements.filterSelect.innerHTML = `
             <option value="all">${escapeHtml((getString('filterAll', 'All ({count})')).replace('{count}', counts.all))}</option>
@@ -532,7 +521,7 @@
 
         const modifier = sortDirection === 'asc' ? -1 : 1;
 
-        // 按更新时间排序 (使用 lastUpdated 作为创建时间的替代)
+
         if (sortBy === 'last_updated') {
             result.sort((a, b) => {
                 const aTime = a.lastUpdated || 0;
@@ -540,7 +529,6 @@
                 return (bTime - aTime) * modifier;
             });
         }
-        // 按分组重置时间排序
         else if (sortBy.startsWith(resetSortPrefix) && sortGroups.length > 0) {
             const targetGroupId = sortBy.slice(resetSortPrefix.length);
             const targetGroup = sortGroups.find(group => group.id === targetGroupId);
@@ -549,13 +537,12 @@
                     const aReset = getGroupResetTimestamp(a, targetGroupId);
                     const bReset = getGroupResetTimestamp(b, targetGroupId);
                     if (aReset === null && bReset === null) return 0;
-                    if (aReset === null) return 1; // 无数据排后面
+                    if (aReset === null) return 1;
                     if (bReset === null) return -1;
                     return (bReset - aReset) * modifier;
                 });
             }
         }
-        // 按分组配额排序
         else if (sortBy !== 'overall' && sortGroups.some(group => group.id === sortBy)) {
             result.sort((a, b) => {
                 const aGroup = getGroupQuota(a, sortBy);
@@ -564,7 +551,6 @@
                 return (getOverallQuota(b) - getOverallQuota(a)) * modifier;
             });
         }
-        // 默认按综合配额排序
         else {
             result.sort((a, b) => (getOverallQuota(b) - getOverallQuota(a)) * modifier);
         }
@@ -932,9 +918,7 @@
         return;
     }
 
-    // =====================================================================
     // Modal Helpers
-    // =====================================================================
 
     function setAddFeedback(status, message) {
         addStatus = status;
@@ -1097,9 +1081,7 @@
         }).join('');
     }
 
-    // =====================================================================
     // Event Bindings
-    // =====================================================================
 
     function bindEvents() {
         elements.backBtn?.addEventListener('click', () => {
@@ -1297,9 +1279,7 @@
         }
     }
 
-    // =====================================================================
     // Announcement (copied from dashboard.js)
-    // =====================================================================
 
     let announcementState = {
         announcements: [],
@@ -1657,9 +1637,7 @@
 
     window.showImagePreview = showImagePreview;
 
-    // =====================================================================
     // Settings (from dashboard.js)
-    // =====================================================================
 
     function openSettingsModal() {
         const modal = document.getElementById('settings-modal');
@@ -1791,9 +1769,7 @@
         });
     }
 
-    // =====================================================================
     // Toast
-    // =====================================================================
 
     function showToast(message, type = 'info') {
         if (!elements.toast) return;
@@ -1804,9 +1780,7 @@
         }, 3000);
     }
 
-    // =====================================================================
     // Message Handling
-    // =====================================================================
 
     function handleMessage(event) {
         const message = event.data;
@@ -1881,9 +1855,7 @@
         }
     }
 
-    // =====================================================================
     // Initialization
-    // =====================================================================
 
     function init() {
         const state = vscode.getState();

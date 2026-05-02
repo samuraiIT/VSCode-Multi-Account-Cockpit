@@ -1,6 +1,6 @@
 /**
- * Antigravity Cockpit - 配额刷新管理器
- * 统一管理所有配额刷新请求，实现文件缓存和防重复刷新
+ * Antigravity Cockpit -
+ *
  */
 
 import { logger } from '../shared/log_service';
@@ -11,40 +11,32 @@ import { credentialStorage } from '../auto_trigger';
 import { recordQuotaHistory } from './quota_history';
 
 export interface RefreshOptions {
-    /** 是否强制刷新（忽略缓存） */
     forceRefresh?: boolean;
-    /** 刷新原因（用于日志） */
     reason?: string;
 }
 
 export interface RefreshResult {
-    /** 是否成功 */
     success: boolean;
-    /** 是否使用了缓存 */
     fromCache: boolean;
-    /** 配额快照 */
     snapshot?: QuotaSnapshot;
-    /** 错误信息 */
     error?: string;
 }
 
 /**
- * 配额刷新管理器
- * 负责统一管理配额刷新，实现跨工作区/IDE 的文件缓存共享
+ *
+ *
  */
 export class QuotaRefreshManager {
-    /** 当前正在刷新的账号（防止并发） */
     private refreshingAccounts = new Set<string>();
-    /** 最近一次网络刷新时间（仅在成功网络请求后更新） */
     private lastNetworkRefreshAt = new Map<string, number>();
 
     constructor(private readonly reactor: ReactorCore) {}
 
     /**
-     * 刷新单个账号的配额
-     * @param email 账号邮箱
-     * @param options 刷新选项
-     * @returns 刷新结果
+     *
+     * @param email
+     * @param options
+     * @returns
      */
     async refreshAccount(email: string, options?: RefreshOptions): Promise<RefreshResult> {
         const reason = options?.reason ?? 'manual';
@@ -78,13 +70,13 @@ export class QuotaRefreshManager {
                 }
             }
 
-            // 2. 缓存无效或强制刷新，发起网络请求
+
             logger.info(`[QuotaRefresh] Fetching quota for ${email} from network (force: ${forceRefresh}, reason: ${reason})`);
             
             const { snapshot, fromApiCacheFile } = await this.reactor.fetchQuotaForAccountWithSource(email, { forceRefresh });
             this.lastNetworkRefreshAt.set(email, Date.now());
             
-            // 3. 记录历史
+
             if (!fromApiCacheFile) {
                 void recordQuotaHistory(email, snapshot);
             } else {
@@ -113,10 +105,10 @@ export class QuotaRefreshManager {
     }
 
     /**
-     * 批量刷新多个账号（走缓存）
-     * @param emails 账号邮箱列表
-     * @param options 刷新选项
-     * @returns 各账号的刷新结果
+     *
+     * @param emails
+     * @param options
+     * @returns
      */
     async refreshAccounts(emails: string[], options?: RefreshOptions): Promise<Map<string, RefreshResult>> {
         const results = new Map<string, RefreshResult>();
@@ -126,7 +118,7 @@ export class QuotaRefreshManager {
             const result = await this.refreshAccount(email, { 
                 ...options, 
                 reason,
-                // 批量刷新默认走缓存，除非明确指定 forceRefresh
+
                 forceRefresh: options?.forceRefresh ?? false,
             });
             results.set(email, result);
@@ -136,9 +128,9 @@ export class QuotaRefreshManager {
     }
 
     /**
-     * 刷新所有已授权的账号
-     * @param options 刷新选项
-     * @returns 各账号的刷新结果
+     *
+     * @param options
+     * @returns
      */
     async refreshAll(options?: RefreshOptions): Promise<Map<string, RefreshResult>> {
         const credentials = await credentialStorage.getAllCredentials();
@@ -152,7 +144,7 @@ export class QuotaRefreshManager {
     }
 
     /**
-     * 等待指定账号的刷新完成
+     *
      */
     private async waitForRefresh(email: string, timeoutMs: number = 30000): Promise<void> {
         const startTime = Date.now();

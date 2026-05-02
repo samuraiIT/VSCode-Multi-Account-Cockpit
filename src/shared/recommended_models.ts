@@ -18,7 +18,7 @@ export const AUTH_RECOMMENDED_MODEL_IDS = [
     'MODEL_PLACEHOLDER_M9', // Gemini 3 Pro Image
 ];
 
-// Authorized 模式黑名单（不显示）
+
 export const AUTH_MODEL_BLACKLIST_IDS = [
     'MODEL_CHAT_20706',
     'MODEL_CHAT_23310',

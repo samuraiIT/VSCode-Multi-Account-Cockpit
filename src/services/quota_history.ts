@@ -212,7 +212,6 @@ function extractRecommendedGroups(
             if (!exactMatch && !prefixMatch) {
                 return false;
             }
-            // 优先沿用推荐模型白名单，同时放行命中前缀/模式的新版本模型
             return RECOMMENDED_MODEL_ID_SET.has(model.modelId) || prefixMatch;
         });
 

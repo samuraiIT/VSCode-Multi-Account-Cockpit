@@ -15,7 +15,6 @@ export interface QuotaApiCacheRecord {
     payload: unknown;
 }
 
-// 插件端在同一根目录下使用独立子目录，避免与桌面端共享/覆盖
 const CACHE_ROOT = path.join(os.homedir(), '.antigravity_cockpit', 'cache', 'quota_api_v1_plugin');
 
 function normalizeEmail(email: string): string {
@@ -62,7 +61,6 @@ export async function writeQuotaApiCache(record: QuotaApiCacheRecord): Promise<v
     await fs.rename(tempPath, filePath);
 }
 
-/** 缓存过期时间（毫秒）：60秒 */
 export const CACHE_TTL_MS = 60 * 1000;
 
 export function isApiCacheValid(record: QuotaApiCacheRecord | null, ttlMs: number = CACHE_TTL_MS): boolean {

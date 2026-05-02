@@ -30,9 +30,7 @@ const server = new McpServer({
     version: "1.0.0",
 });
 
-// ============================================================================
 // Static Model Registry
-// ============================================================================
 
 interface ModelDef {
     id: string;
@@ -116,9 +114,7 @@ const STATIC_MODEL_REGISTRY: ModelDef[] = [
     { id: "kimi-k2.5", type: "kimi" },
 ];
 
-// ============================================================================
 // Helper Functions
-// ============================================================================
 
 interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -246,9 +242,7 @@ function getConfiguredProviders(): string[] {
     }
 }
 
-// ============================================================================
 // Tool Registration
-// ============================================================================
 
 /**
  * Tool: proxy_status
@@ -742,9 +736,7 @@ type ChatCompletionParams = {
     }
 );
 
-// ============================================================================
 // Server Startup
-// ============================================================================
 
 async function main() {
     const transport = new StdioServerTransport();

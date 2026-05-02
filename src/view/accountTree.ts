@@ -1,14 +1,14 @@
 /**
- * 账号管理 Tree View
+ *
  * 
- * 三层结构：
- * - 第1层：邮箱 (带星标表示当前账号)
- * - 第2层：分组 (显示配额百分比)
- * - 第3层：模型明细
+ *
+ * -
+ * -
+ * -
  * 
- * 数据来源：
- * - 账号列表：Cockpit Tools (WebSocket)
- * - 配额数据：ReactorCore.fetchQuotaForAccount (插件端逻辑，邮箱匹配)
+ *
+ * -
+ * -
  */
 
 import * as vscode from 'vscode';
@@ -19,20 +19,16 @@ import { t } from '../shared/i18n';
 import { accountSwitchService } from '../services/accountSwitchService';
 import { openCockpitToolsDesktop } from '../shared/cockpit_tools_launcher';
 
-// ============================================================================
 // Types
-// ============================================================================
 
 // Types moved to AccountsRefreshService
 
-// ============================================================================
 // Tree Node Types
-// ============================================================================
 
 export type AccountTreeItem = AccountNode | GroupNode | ModelNode | CreditsNode | ToolsStatusNode | LoadingNode | ErrorNode;
 
 /**
- * 账号节点 (第1层)
+ *
  */
 export class AccountNode extends vscode.TreeItem {
     constructor(
@@ -43,18 +39,17 @@ export class AccountNode extends vscode.TreeItem {
     ) {
         super(email, vscode.TreeItemCollapsibleState.Expanded);
 
-        // 图标优先级：失效 > 无权限 > 当前 > 普通
         if (isInvalid) {
-            // ⚠️ 失效账号显示警告图标（红色）
+
             this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('errorForeground'));
         } else if (isForbidden) {
-            // 🔒 无权限账号显示锁图标（红色）
+
             this.iconPath = new vscode.ThemeIcon('lock', new vscode.ThemeColor('errorForeground'));
         } else if (isCurrent) {
-            // ⭐ 当前账号显示星星
+
             this.iconPath = new vscode.ThemeIcon('star-full', new vscode.ThemeColor('charts.yellow'));
         } else {
-            // 👤 普通账号
+
             this.iconPath = new vscode.ThemeIcon('account');
         }
 
@@ -73,7 +68,7 @@ export class AccountNode extends vscode.TreeItem {
 }
 
 /**
- * 分组节点 (第2层)
+ *
  */
 export class GroupNode extends vscode.TreeItem {
     constructor(
@@ -96,7 +91,6 @@ export class GroupNode extends vscode.TreeItem {
 
         this.iconPath = new vscode.ThemeIcon('circle-filled', color);
         
-        // 简短倒计时格式
         const resetTime = group.timeUntilResetFormatted || '-';
         this.description = `${pct}%  ${resetTime}`;
         
@@ -112,7 +106,7 @@ export class GroupNode extends vscode.TreeItem {
 }
 
 /**
- * 模型节点 (第3层)
+ *
  */
 export class ModelNode extends vscode.TreeItem {
     constructor(
@@ -128,7 +122,7 @@ export class ModelNode extends vscode.TreeItem {
 }
 
 /**
- * Credits 节点（账号子节点，单独显示）
+ * Credits
  */
 export class CreditsNode extends vscode.TreeItem {
     constructor(
@@ -144,7 +138,7 @@ export class CreditsNode extends vscode.TreeItem {
 }
 
 /**
- * Tools 连接状态节点
+ * Tools
  */
 export class ToolsStatusNode extends vscode.TreeItem {
     constructor(
@@ -168,7 +162,7 @@ export class ToolsStatusNode extends vscode.TreeItem {
 }
 
 /**
- * 加载中节点
+ *
  */
 export class LoadingNode extends vscode.TreeItem {
     constructor() {
@@ -178,7 +172,7 @@ export class LoadingNode extends vscode.TreeItem {
 }
 
 /**
- * 错误节点
+ *
  */
 export class ErrorNode extends vscode.TreeItem {
     constructor(message: string) {
@@ -188,9 +182,7 @@ export class ErrorNode extends vscode.TreeItem {
     }
 }
 
-// ============================================================================
 // Tree Data Provider
-// ============================================================================
 
 export class AccountTreeProvider implements vscode.TreeDataProvider<AccountTreeItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<AccountTreeItem | undefined | null | void>();
@@ -209,29 +201,29 @@ export class AccountTreeProvider implements vscode.TreeDataProvider<AccountTreeI
     }
 
     /**
-     * 手动刷新（带冷却）
+     *
      */
     async manualRefresh(): Promise<boolean> {
         return this.refreshService.manualRefresh();
     }
 
     /**
-     * 刷新所有账号的配额（串行，静默加载）
-     * 使用锁机制防止并发执行，避免重复 API 请求
+     *
+     *
      */
     async refreshQuotas(): Promise<void> {
         await this.refreshService.refreshQuotas();
     }
 
     /**
-     * 刷新所有账号列表
+     *
      */
     async refresh(): Promise<void> {
         await this.refreshService.refresh();
     }
 
     /**
-     * 加载指定账号的配额（显示加载状态，用于首次加载）
+     *
      */
     async loadAccountQuota(email: string): Promise<void> {
         await this.refreshService.loadAccountQuota(email);
@@ -275,7 +267,6 @@ export class AccountTreeProvider implements vscode.TreeDataProvider<AccountTreeI
             return [new ErrorNode(t('accountTree.noAccounts'))];
         }
 
-        // 保持账号原始顺序，不按当前账号排序
         const nodes: AccountNode[] = [];
         for (const [email, account] of accounts) {
             nodes.push(
@@ -302,12 +293,10 @@ export class AccountTreeProvider implements vscode.TreeDataProvider<AccountTreeI
             ];
         }
 
-        // 加载中
         if (!cache || cache.loading) {
             return [new LoadingNode()];
         }
 
-        // 错误
         if (cache.error) {
             return [
                 new ErrorNode(cache.error),
@@ -315,17 +304,14 @@ export class AccountTreeProvider implements vscode.TreeDataProvider<AccountTreeI
             ];
         }
 
-        // 显示分组
         const children: AccountTreeItem[] = [];
         const snapshot = cache.snapshot;
 
         if (snapshot.groups && snapshot.groups.length > 0) {
-            // 有分组，显示分组
             for (const group of snapshot.groups) {
                 children.push(new GroupNode(group, email));
             }
         } else if (snapshot.models.length > 0) {
-            // 无分组但有模型，直接显示模型
             for (const model of snapshot.models) {
                 children.push(new ModelNode(model, email));
             }
@@ -333,24 +319,24 @@ export class AccountTreeProvider implements vscode.TreeDataProvider<AccountTreeI
             children.push(new ErrorNode(t('accountTree.noQuotaData')));
         }
 
-        // Credits 单独字段
+
         children.push(new CreditsNode(email, resolveAvailableAICredits(snapshot)));
 
-        // Tools 连接状态节点
+
         children.push(new ToolsStatusNode(email, cockpitToolsWs.isConnected));
 
         return children;
     }
 
     /**
-     * 获取当前账号
+     *
      */
     getCurrentEmail(): string | null {
         return this.refreshService.getCurrentEmail();
     }
 
     /**
-     * 获取指定账号的 ID (从 Cockpit Tools)
+     *
      */
     async getAccountId(email: string): Promise<string | null> {
         return this.refreshService.getAccountId(email);
@@ -380,18 +366,15 @@ function formatCreditsNumber(value: number): string {
     return rounded.toLocaleString();
 }
 
-// ============================================================================
 // Commands
-// ============================================================================
 
 export function registerAccountTreeCommands(
     context: vscode.ExtensionContext,
     provider: AccountTreeProvider,
 ): void {
-    // Refresh (带冷却)
+
     context.subscriptions.push(
         vscode.commands.registerCommand('agCockpit.accountTree.refresh', async () => {
-            // 手动触发重连
             cockpitToolsWs.ensureConnected();
             await provider.manualRefresh();
         }),
@@ -406,7 +389,7 @@ export function registerAccountTreeCommands(
 
     context.subscriptions.push(
         vscode.commands.registerCommand('agCockpit.accountTree.switch', async (node: AccountNode) => {
-            // 🆕 二次确认对话框
+
             const currentEmail = provider.getCurrentEmail();
             const confirmMessage = currentEmail 
                 ? t('account.switch.confirmWithCurrent', { current: currentEmail, target: node.email })
@@ -414,13 +397,12 @@ export function registerAccountTreeCommands(
             
             const confirm = await vscode.window.showWarningMessage(
                 confirmMessage,
-                { modal: true },  // 模态对话框，自动带有取消按钮
+                { modal: true },
                 t('account.switch.confirmOk'),
             );
             
-            // 用户点击"取消"或关闭对话框
             if (confirm !== t('account.switch.confirmOk')) {
-                return;  // 中止操作
+                return;
             }
             
             const result = await accountSwitchService.switchAccount(node.email, {
@@ -448,7 +430,7 @@ export function registerAccountTreeCommands(
             }
 
             if (accountSwitchService.isSeamlessMode(result.mode)) {
-                vscode.window.showInformationMessage(`已无感切换到账号：${result.email ?? node.email}`);
+                vscode.window.showInformationMessage(`Seamlessly switched to account: ${result.email ?? node.email}`);
             } else {
                 vscode.window.showInformationMessage(t('accountTree.switchingTo', { email: node.email }));
             }

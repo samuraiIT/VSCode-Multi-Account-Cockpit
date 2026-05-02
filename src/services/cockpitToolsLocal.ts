@@ -1,7 +1,7 @@
 /**
- * Cockpit Tools 本地文件读取服务
- * 直接读取 ~/.antigravity_cockpit/ 下的 JSON 文件获取数据
- * 不依赖 WebSocket 连接
+ * Cockpit Tools
+ *
+ *
  */
 
 import * as fs from 'fs';
@@ -11,7 +11,6 @@ import { getCockpitToolsSharedDir } from '../shared/antigravity_paths';
 
 const ACCOUNTS_INDEX = 'accounts.json';
 
-/** accounts.json 中的账号条目 */
 interface AccountEntry {
     id: string;
     email: string;
@@ -20,7 +19,6 @@ interface AccountEntry {
     last_used: number;
 }
 
-/** accounts.json 的完整结构 */
 interface AccountsIndex {
     version: string;
     accounts: AccountEntry[];
@@ -29,25 +27,25 @@ interface AccountsIndex {
 
 class CockpitToolsLocal {
     /**
-     * 读取 accounts.json 索引文件
+     *
      */
     private readAccountsIndex(): AccountsIndex | null {
         const filePath = path.join(getCockpitToolsSharedDir(), ACCOUNTS_INDEX);
         try {
             if (!fs.existsSync(filePath)) {
-                logger.warn('[CockpitToolsLocal] accounts.json 不存在');
+                logger.warn('[CockpitToolsLocal] accounts.json Does not exist');
                 return null;
             }
             const content = fs.readFileSync(filePath, 'utf-8');
             return JSON.parse(content) as AccountsIndex;
         } catch (err) {
-            logger.error(`[CockpitToolsLocal] 读取 accounts.json 失败: ${err}`);
+            logger.error(`[CockpitToolsLocal] Failed to read accounts.json: ${err}`);
             return null;
         }
     }
 
     /**
-     * 通过 email 获取账号 ID（不依赖 WebSocket）
+     *
      */
     getAccountIdByEmail(email: string): string | null {
         const index = this.readAccountsIndex();
@@ -60,7 +58,7 @@ class CockpitToolsLocal {
     }
 
     /**
-     * 获取完整账号列表
+     *
      */
     getAccountsList(): AccountEntry[] {
         const index = this.readAccountsIndex();
@@ -68,7 +66,7 @@ class CockpitToolsLocal {
     }
 
     /**
-     * 获取当前激活账号 ID
+     *
      */
     getCurrentAccountId(): string | null {
         const index = this.readAccountsIndex();
@@ -76,7 +74,7 @@ class CockpitToolsLocal {
     }
 
     /**
-     * 获取当前激活账号 email
+     *
      */
     getCurrentAccountEmail(): string | null {
         const index = this.readAccountsIndex();

@@ -558,12 +558,11 @@ export function createHistoryModule({
             return;
         }
 
-        // 先计算每个点的 delta，只保留配额有实际变化的点
+
         const allPointsDesc = getHistoryPoints().slice().sort((a, b) => b.timestamp - a.timestamp);
         const pointsDesc = allPointsDesc.filter((point, index) => {
             const nextPoint = allPointsDesc[index + 1];
             if (!nextPoint) {
-                // 最旧的一条记录，保留
                 return true;
             }
             const delta = point.remainingPercentage - nextPoint.remainingPercentage;

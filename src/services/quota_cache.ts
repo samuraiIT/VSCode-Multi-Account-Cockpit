@@ -76,14 +76,13 @@ export async function writeQuotaCache(record: QuotaCacheRecord): Promise<void> {
     await fs.rename(tempPath, filePath);
 }
 
-/** 缓存过期时间（毫秒）：60秒 */
 export const CACHE_TTL_MS = 60 * 1000;
 
 /**
- * 检查缓存是否有效（未过期）
- * @param record 缓存记录
- * @param ttlMs 过期时间（毫秒），默认 CACHE_TTL_MS
- * @returns true 表示缓存有效，false 表示已过期或无效
+ *
+ * @param record
+ * @param ttlMs
+ * @returns true
  */
 export function isCacheValid(record: QuotaCacheRecord | null, ttlMs: number = CACHE_TTL_MS): boolean {
     if (!record || !record.models?.length) {
@@ -95,9 +94,9 @@ export function isCacheValid(record: QuotaCacheRecord | null, ttlMs: number = CA
 }
 
 /**
- * 获取缓存年龄（毫秒）
- * @param record 缓存记录
- * @returns 缓存年龄，如果无效返回 Infinity
+ *
+ * @param record
+ * @returns
  */
 export function getCacheAge(record: QuotaCacheRecord | null): number {
     if (!record || !record.updatedAt) {
