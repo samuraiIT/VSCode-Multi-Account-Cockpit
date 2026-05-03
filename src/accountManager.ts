@@ -126,7 +126,7 @@ export class AccountManager {
     metadata?: Record<string, unknown>
   ): { account: Account; isNew: boolean } {
     const existing = this.store.accounts.find(
-      (a) => a.platform === platform && a.email === email
+      (a) => a.platform === platform && a.email?.toLowerCase() === email.toLowerCase()
     );
     if (existing) {
       this.update(existing.id, { credentials, source, lastSyncedAt: Date.now(), metadata });

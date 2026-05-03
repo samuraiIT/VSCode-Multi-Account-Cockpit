@@ -25,6 +25,7 @@ export const commands = {
 export const EventEmitter = jest.fn(() => ({
     event: jest.fn(),
     fire: jest.fn(),
+    dispose: jest.fn(),
 }));
 
 export const Uri = {
