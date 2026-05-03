@@ -1,6 +1,6 @@
 {
   "name": "vscode-multi-account-cockpit",
-  "displayName": "Multi-Account Cockpit",
+  "displayName": "vscode-multi-account-cockpit",
   "icon": "assets/icon.png",
   "description": "Unified AI multi-account manager: quota monitoring, Google Drive sync, Telegram notifications, profile management, backup/restore, MCP server, and Cockpit Tools integration for Antigravity, Codex, Cursor, and GitHub Copilot.",
   "version": "1.0.0",
@@ -570,3 +570,5 @@
     "zod": "^3.25.76"
   }
 }
+
+
