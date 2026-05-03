@@ -116,7 +116,7 @@ export class QuotaManager {
     }
 
     private async fetchAndUpdate(isInitial: boolean = false): Promise<QuotaSnapshot | null> {
-        if (!this.isEnabled) return null;
+        if (!this.isEnabled) {return null;}
 
         if (isInitial) {
             this.statusBar.showLoading();
@@ -226,14 +226,14 @@ export class QuotaManager {
     }
 
     public async getProfileQuotas(): Promise<{ profileName: string; email?: string; snapshot: QuotaSnapshot }[]> {
-        if (!this.profileManager) return [];
+        if (!this.profileManager) {return [];}
         const profiles = await this.profileManager.loadProfiles();
         const results: { profileName: string; email?: string; snapshot: QuotaSnapshot }[] = [];
         const activeProfile = this.profileManager.activeProfile;
 
         for (const p of profiles) {
             // Skip the active profile since its current quota is typically fetched live
-            if (p.name === activeProfile) continue;
+            if (p.name === activeProfile) {continue;}
 
             if (p.quotaCache && p.quotaCache.models && p.quotaCache.models.length > 0) {
                 results.push({
@@ -267,7 +267,7 @@ export class QuotaManager {
     }
 
     private async checkAndNotifyResets(snapshot: QuotaSnapshot) {
-        if (!snapshot.models) return;
+        if (!snapshot.models) {return;}
 
         for (const model of snapshot.models) {
             const wasExhausted = this.lastNotifiedModels.get(model.modelId) ?? false;
@@ -364,7 +364,7 @@ export class QuotaManager {
                 }
 
                 const addGroup = (groupName: string, groupModels: any[]) => {
-                    if (groupModels.length === 0) return;
+                    if (groupModels.length === 0) {return;}
                     items.push({ label: groupName, kind: vscode.QuickPickItemKind.Separator });
                     groupModels.sort((a, b) => compareModels(a, b, this.sortMethod));
                     for (const model of groupModels) {
@@ -372,9 +372,9 @@ export class QuotaManager {
                         const pinIcon = isPinned ? '$(pin)' : '$(circle-outline)';
                         const pct = model.remainingPercentage ?? 0;
                         let status = '$(check)';
-                        if (model.isExhausted || pct === 0) status = '$(error)';
-                        else if (pct < 30) status = '$(flame)';
-                        else if (pct < 50) status = '$(warning)';
+                        if (model.isExhausted || pct === 0) {status = '$(error)';}
+                        else if (pct < 30) {status = '$(flame)';}
+                        else if (pct < 50) {status = '$(warning)';}
                         const bar = drawProgressBar(pct);
                         let desc = `${bar} ${pct.toFixed(1)}%`;
                         if (model.timeUntilReset > 0) {
@@ -382,14 +382,14 @@ export class QuotaManager {
                             desc += ` • ${lm.t('Reset at {0}', formatResetTime(model.resetTime))} (${lm.t('in')} ${timeUntil})`;
                         }
                         let details = '';
-                        if (model.requestLimit && model.requestUsage !== undefined) details += `${lm.t('Requests')}: ${model.requestUsage} / ${model.requestLimit}  `;
-                        if (model.tokenLimit && model.tokenUsage !== undefined) details += `${lm.t('Tokens')}: ${model.tokenUsage} / ${model.tokenLimit}`;
+                        if (model.requestLimit && model.requestUsage !== undefined) {details += `${lm.t('Requests')}: ${model.requestUsage} / ${model.requestLimit}  `;}
+                        if (model.tokenLimit && model.tokenUsage !== undefined) {details += `${lm.t('Tokens')}: ${model.tokenUsage} / ${model.tokenLimit}`;}
                         items.push({ label: `${pinIcon} ${status} ${model.label}`, description: desc, detail: details });
                     }
                 };
                 const activeGroups = groups.filter(g => g.models.length > 0);
                 activeGroups.sort((a, b) => compareModels(a.models[0], b.models[0], this.sortMethod));
-                for (const group of activeGroups) addGroup(group.name, group.models);
+                for (const group of activeGroups) {addGroup(group.name, group.models);}
             }
             picker.items = items;
             updateSortButton();
@@ -414,7 +414,7 @@ export class QuotaManager {
 
         picker.onDidAccept(async () => {
             const selected = picker.selectedItems[0];
-            if (!selected) return;
+            if (!selected) {return;}
 
             // Handle "Plan" click
             if (selected.label.includes(lm.t('Plan'))) {

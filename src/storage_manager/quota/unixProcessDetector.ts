@@ -17,7 +17,7 @@ export class UnixProcessDetector implements IPlatformStrategy {
         // Check for 'ss' availability on Linux as it is preferred/default on modern distros
         if (platform === 'linux') {
             this.commandExists('ss').then(exists => {
-                if (exists) this.availablePortCommand = 'ss';
+                if (exists) {this.availablePortCommand = 'ss';}
             });
         }
     }

@@ -19,7 +19,7 @@ export class QuotaStatusBar {
 
     public update(snapshot: QuotaSnapshot, pinnedOverride?: string[], tracker?: QuotaUsageTracker): void {
         this.lastSnapshot = snapshot;
-        if (tracker) this.lastTracker = tracker;
+        if (tracker) {this.lastTracker = tracker;}
 
         const pinned = pinnedOverride || this.getPinnedModels();
         const parts: string[] = [];

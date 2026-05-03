@@ -60,14 +60,14 @@ export class DashboardProvider {
 
   /** Push a fresh state to the open panel (if any). */
   async refresh(): Promise<void> {
-    if (!this.panel) return;
+    if (!this.panel) {return;}
     await this.updatePanel();
   }
 
   // ── Private ─────────────────────────────────────────────────────────────────
 
   private async updatePanel(): Promise<void> {
-    if (!this.panel) return;
+    if (!this.panel) {return;}
     const accounts = this.accountManager.getAll();
     this.panel.webview.html = this.renderHtml(accounts);
   }
@@ -112,7 +112,7 @@ export class DashboardProvider {
   }
 
   private async refreshQuotas(): Promise<void> {
-    if (!this.panel) return;
+    if (!this.panel) {return;}
     this.panel.webview.postMessage({ command: 'setLoading', payload: true });
 
     const accounts = this.accountManager.getAll();
@@ -160,7 +160,7 @@ export class DashboardProvider {
       canSelectMany: false,
       filters: { JSON: ['json'] },
     });
-    if (!uris || uris.length === 0) return;
+    if (!uris || uris.length === 0) {return;}
     const raw = await vscode.workspace.fs.readFile(uris[0]);
     try {
       const result = this.accountManager.importJson(Buffer.from(raw).toString('utf-8'));

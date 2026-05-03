@@ -62,7 +62,7 @@ export async function getConversationsAsync(brainDir: string): Promise<Conversat
             const dirPath = path.join(brainDir, id);
             try {
                 const stats = await fs.promises.stat(dirPath);
-                if (!stats.isDirectory()) return null;
+                if (!stats.isDirectory()) {return null;}
 
                 let label = id;
                 const parseTitle = async (filename: string): Promise<string | null> => {
@@ -146,7 +146,7 @@ export async function getConversationsAsync(brainDir: string): Promise<Conversat
         const worker = async () => {
             while (queue.length > 0) {
                 const factory = queue.shift();
-                if (!factory) break;
+                if (!factory) {break;}
                 results.push(await factory());
             }
         };
@@ -175,15 +175,15 @@ export async function limitConcurrency<T>(
     token?: vscode.CancellationToken
 ): Promise<void> {
     const workerCount = Math.min(limit, items.length);
-    if (workerCount <= 0) return;
+    if (workerCount <= 0) {return;}
 
     const queue = [...items]; // Clone to consume
 
     const worker = async () => {
         while (queue.length > 0) {
-            if (token?.isCancellationRequested) throw new vscode.CancellationError();
+            if (token?.isCancellationRequested) {throw new vscode.CancellationError();}
             const item = queue.shift();
-            if (!item) break;
+            if (!item) {break;}
 
             await task(item);
         }
@@ -209,10 +209,10 @@ export function formatDuration(ms: number): string {
     const sText = lm.t('s');
 
     const parts: string[] = [];
-    if (d > 0) parts.push(`${d}${dText}`);
-    if (h > 0) parts.push(`${h}${hText}`);
-    if (m > 0) parts.push(`${m}${mText}`);
-    if (s > 0 || parts.length === 0) parts.push(`${s}${sText}`);
+    if (d > 0) {parts.push(`${d}${dText}`);}
+    if (h > 0) {parts.push(`${h}${hText}`);}
+    if (m > 0) {parts.push(`${m}${mText}`);}
+    if (s > 0 || parts.length === 0) {parts.push(`${s}${sText}`);}
 
     return parts.join(' ');
 }
@@ -221,7 +221,7 @@ export function formatDuration(ms: number): string {
  * Format bytes to human readable string
  */
 export function formatSize(bytes?: number): string {
-    if (bytes === undefined || bytes === null) return '0 B';
+    if (bytes === undefined || bytes === null) {return '0 B';}
     const units = ['B', 'KB', 'MB', 'GB'];
     let size = bytes;
     let unitIndex = 0;
@@ -237,7 +237,7 @@ export function formatSize(bytes?: number): string {
  */
 export function getDirectorySize(dirPath: string): number {
     let total = 0;
-    if (!fs.existsSync(dirPath)) return 0;
+    if (!fs.existsSync(dirPath)) {return 0;}
 
     try {
         const files = fs.readdirSync(dirPath);

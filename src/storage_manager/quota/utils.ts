@@ -70,8 +70,8 @@ export function formatResetTime(date: Date): string {
         minute: '2-digit'
     }).format(date);
 
-    if (isToday) return `${lm.t('Today')} ${timeStr}`;
-    if (isTomorrow) return `${lm.t('Tomorrow')} ${timeStr}`;
+    if (isToday) {return `${lm.t('Today')} ${timeStr}`;}
+    if (isTomorrow) {return `${lm.t('Tomorrow')} ${timeStr}`;}
 
     return new Intl.DateTimeFormat(locale, {
         month: 'short',
@@ -96,12 +96,12 @@ export function compareModels(a: { remainingPercentage?: number, resetTime: Date
 
     if (sortMethod === 'quota') {
         // Highest quota first (100% ... 0%)
-        if (quotaA !== quotaB) return quotaB - quotaA;
+        if (quotaA !== quotaB) {return quotaB - quotaA;}
         // Secondary sort by label (Alphabetical)
         return labelA.localeCompare(labelB);
     } else {
         // Soonest reset first
-        if (timeA !== timeB) return timeA - timeB;
+        if (timeA !== timeB) {return timeA - timeB;}
         // Secondary sort by quota (Lowest first - most urgent)
         return quotaA - quotaB;
     }

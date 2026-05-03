@@ -166,17 +166,17 @@ export class WindowsProcessDetector implements IPlatformStrategy {
         const lines = stdout.split('\n');
         for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed) continue;
+            if (!trimmed) {continue;}
 
             // Check if line contains LISTENING (case insensitive)
-            if (!/LISTENING/i.test(trimmed)) continue;
+            if (!/LISTENING/i.test(trimmed)) {continue;}
 
             // Extract PID from end of line
             const pidMatch = trimmed.match(/\s+(\d+)$/);
-            if (!pidMatch) continue;
+            if (!pidMatch) {continue;}
 
             const pid = parseInt(pidMatch[1], 10);
-            if (pid !== targetPid) continue;
+            if (pid !== targetPid) {continue;}
 
             // Extract Port
             const portMatch = trimmed.match(/(?:127\.0\.0\.1|0\.0\.0\.0|\[::1?]):(\d+)/);

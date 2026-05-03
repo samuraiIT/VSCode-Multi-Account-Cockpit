@@ -45,11 +45,11 @@ export class ProcessManager implements vscode.Disposable {
     const cfg = vscode.workspace.getConfiguration('multiAccountCockpit');
     const cfgKey = `${platform}ExecutablePath`;
     const override = cfg.get<string>(cfgKey, '');
-    if (override && fs.existsSync(override)) return override;
+    if (override && fs.existsSync(override)) {return override;}
 
     const defaults = this.defaultPaths(platform);
     for (const p of defaults) {
-      if (fs.existsSync(p)) return p;
+      if (fs.existsSync(p)) {return p;}
     }
     return null;
   }

@@ -31,7 +31,7 @@ export class AntigravityClient {
     }
 
     private async ensureConnection(): Promise<{ port: number; token: string }> {
-        if (this.connectionInfo) return this.connectionInfo;
+        if (this.connectionInfo) {return this.connectionInfo;}
 
         const info = await this.portDetector.detectProcessInfo();
         if (!info) {
@@ -126,7 +126,7 @@ export class AntigravityClient {
                 await Promise.all(batch.map(async (item: any) => {
                     try {
                         const cascadeId = item.cascadeId;
-                        if (!cascadeId) return;
+                        if (!cascadeId) {return;}
 
                         // Fetch full trajectory
                         // API: GetCascadeTrajectory

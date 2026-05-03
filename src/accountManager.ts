@@ -87,7 +87,7 @@ export class AccountManager {
 
   update(id: string, partial: Partial<Omit<Account, 'id'>>): boolean {
     const idx = this.store.accounts.findIndex((a) => a.id === id);
-    if (idx === -1) return false;
+    if (idx === -1) {return false;}
     this.store.accounts[idx] = { ...this.store.accounts[idx], ...partial };
     this.persist();
     this._onDidChange.fire();
@@ -97,7 +97,7 @@ export class AccountManager {
   remove(id: string): boolean {
     const before = this.store.accounts.length;
     this.store.accounts = this.store.accounts.filter((a) => a.id !== id);
-    if (this.store.accounts.length === before) return false;
+    if (this.store.accounts.length === before) {return false;}
     this.persist();
     this._onDidChange.fire();
     return true;
@@ -105,10 +105,10 @@ export class AccountManager {
 
   setActive(id: string): boolean {
     const account = this.store.accounts.find((a) => a.id === id);
-    if (!account) return false;
+    if (!account) {return false;}
     // Deactivate all accounts on the same platform
     this.store.accounts.forEach((a) => {
-      if (a.platform === account.platform) a.active = false;
+      if (a.platform === account.platform) {a.active = false;}
     });
     account.active = true;
     this.persist();
@@ -155,7 +155,7 @@ export class AccountManager {
     let added = 0;
     let updated = 0;
     for (const acc of incoming.accounts) {
-      if (!acc.id || !acc.platform) continue;
+      if (!acc.id || !acc.platform) {continue;}
       const { isNew } = this.upsert(
         acc.platform as Platform,
         acc.email ?? acc.id,
@@ -164,7 +164,7 @@ export class AccountManager {
         acc.label,
         acc.metadata
       );
-      if (isNew) added++; else updated++;
+      if (isNew) {added++;} else {updated++;}
     }
     this._onDidChange.fire();
     return { added, updated };
@@ -187,7 +187,7 @@ export class AccountManager {
   }
 
   listBackups(): BackupManifest[] {
-    if (!fs.existsSync(this.backupsPath)) return [];
+    if (!fs.existsSync(this.backupsPath)) {return [];}
     return fs
       .readdirSync(this.backupsPath)
       .filter((f) => f.endsWith('.json'))
@@ -205,7 +205,7 @@ export class AccountManager {
 
   restore(backupId: string): number {
     const backupPath = path.join(this.backupsPath, `${backupId}.json`);
-    if (!fs.existsSync(backupPath)) throw new Error(`Backup not found: ${backupId}`);
+    if (!fs.existsSync(backupPath)) {throw new Error(`Backup not found: ${backupId}`);}
     const raw = fs.readFileSync(backupPath, 'utf-8');
     const parsed = JSON.parse(raw) as { store: AccountStore };
     this.store = parsed.store;

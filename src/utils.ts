@@ -25,10 +25,10 @@ export function formatTimestamp(ms: number): string {
 /** Format milliseconds remaining as "Xh Ym". */
 export function formatTimeRemaining(resetAtMs: number): string {
   const diff = resetAtMs - Date.now();
-  if (diff <= 0) return 'Reset now';
+  if (diff <= 0) {return 'Reset now';}
   const hours = Math.floor(diff / 3_600_000);
   const minutes = Math.floor((diff % 3_600_000) / 60_000);
-  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) {return `${hours}h ${minutes}m`;}
   return `${minutes}m`;
 }
 

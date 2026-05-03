@@ -36,7 +36,7 @@ export class PbParser {
     private static parseBuffer(buffer: Buffer, depth: number = 0): string[] {
         const strings: string[] = [];
         // Safety limit for recursion
-        if (depth > 20) return strings;
+        if (depth > 20) {return strings;}
 
         const reader = protobuf.Reader.create(buffer);
 
@@ -157,7 +157,7 @@ export class PbParser {
      */
     static async extractTitle(filePath: string): Promise<string | null> {
         try {
-            if (!fs.existsSync(filePath)) return null;
+            if (!fs.existsSync(filePath)) {return null;}
             const strings = await this.extractStrings(filePath);
 
             // Heuristic to find the title:
@@ -165,13 +165,13 @@ export class PbParser {
             // 2. Select the first string that looks like human text.
             const candidates = strings.filter(s => {
                 const trimmed = s.trim();
-                if (trimmed.length < 4 || trimmed.length > 200) return false;
+                if (trimmed.length < 4 || trimmed.length > 200) {return false;}
                 // Exclude UUIDs
-                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return false;
+                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {return false;}
                 // Exclude hex IDs
-                if (/^[0-9a-f]{16,64}$/i.test(trimmed)) return false;
+                if (/^[0-9a-f]{16,64}$/i.test(trimmed)) {return false;}
                 // Exclude paths/URLs
-                if (trimmed.includes('/') || trimmed.includes('\\') || trimmed.includes('://')) return false;
+                if (trimmed.includes('/') || trimmed.includes('\\') || trimmed.includes('://')) {return false;}
 
                 return true;
             });

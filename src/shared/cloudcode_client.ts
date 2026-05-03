@@ -556,7 +556,7 @@ export class CloudCodeClient {
                         try {
                             lastData = JSON.parse(payload) as T;
                         } catch {
-
+                            // Keep streaming even if one event payload is malformed.
                         }
                     }
                 }

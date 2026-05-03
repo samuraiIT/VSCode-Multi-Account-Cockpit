@@ -68,7 +68,7 @@ export class QuotaService {
 
   private async fetchCodexQuota(account: Account): Promise<PlatformQuota> {
     const token = account.credentials.accessToken;
-    if (!token) return this.buildErrorQuota(account, 'No access token');
+    if (!token) {return this.buildErrorQuota(account, 'No access token');}
 
     const data = await this.get<CodexQuotaResponse>(
       'https://api.openai.com/codex/usage',
@@ -110,7 +110,7 @@ export class QuotaService {
 
   private async fetchCopilotQuota(account: Account): Promise<PlatformQuota> {
     const token = account.credentials.accessToken ?? account.credentials.refreshToken;
-    if (!token) return this.buildErrorQuota(account, 'No access token');
+    if (!token) {return this.buildErrorQuota(account, 'No access token');}
 
     const data = await this.get<CopilotQuotaResponse>(
       'https://api.github.com/copilot_internal/user',

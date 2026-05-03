@@ -45,7 +45,7 @@ export class StatsScheduler {
     }
 
     public async sendStats() {
-        if (!this.telegramService.isConfigured()) return;
+        if (!this.telegramService.isConfigured()) {return;}
 
         try {
             const lm = LocalizationManager.getInstance();
@@ -63,7 +63,7 @@ export class StatsScheduler {
                 snapshot = this.quotaManager.getLatestSnapshot();
             }
 
-            if (!snapshot) return; // No data available
+            if (!snapshot) {return;} // No data available
 
             // Collect Sync Stats
             const syncConfig = this.syncManager.getConfig();

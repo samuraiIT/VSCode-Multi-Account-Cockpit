@@ -25,7 +25,7 @@ export class AccountInfoWebview {
             : undefined;
 
         AccountInfoWebview.latestSnapshot = snapshot;
-        if (tracker) AccountInfoWebview.latestTracker = tracker;
+        if (tracker) {AccountInfoWebview.latestTracker = tracker;}
         AccountInfoWebview.latestAccounts = accounts;
         AccountInfoWebview.latestCurrentAccountId = currentAccountId;
 
@@ -132,9 +132,9 @@ export class AccountInfoWebview {
         currentAccountId?: string | null
     ): void {
         AccountInfoWebview.latestSnapshot = snapshot;
-        if (tracker) AccountInfoWebview.latestTracker = tracker;
-        if (accounts) AccountInfoWebview.latestAccounts = accounts;
-        if (currentAccountId !== undefined) AccountInfoWebview.latestCurrentAccountId = currentAccountId;
+        if (tracker) {AccountInfoWebview.latestTracker = tracker;}
+        if (accounts) {AccountInfoWebview.latestAccounts = accounts;}
+        if (currentAccountId !== undefined) {AccountInfoWebview.latestCurrentAccountId = currentAccountId;}
 
         if (AccountInfoWebview.currentPanel) {
             AccountInfoWebview.currentPanel.webview.html = AccountInfoWebview.getHtmlContent(snapshot);
@@ -184,8 +184,8 @@ export class AccountInfoWebview {
         const models = [...(snapshot.models || [])].sort((a, b) => {
             const aPinned = pinnedIds.includes(a.modelId) || pinnedIds.includes(a.label);
             const bPinned = pinnedIds.includes(b.modelId) || pinnedIds.includes(b.label);
-            if (aPinned && !bPinned) return -1;
-            if (!aPinned && bPinned) return 1;
+            if (aPinned && !bPinned) {return -1;}
+            if (!aPinned && bPinned) {return 1;}
             return 0;
         });
 
@@ -204,16 +204,16 @@ export class AccountInfoWebview {
         const dangerThreshold = config.get<number>('quota.thresholds.danger') ?? config.get<number>('quota.dangerThreshold') ?? 0;
 
         const getStatusIcon = (pct: number, isExhausted: boolean): string => {
-            if (isExhausted || pct <= dangerThreshold) return '🔴';
-            if (pct < criticalThreshold) return '🟠';
-            if (pct < warningThreshold) return '🟡';
+            if (isExhausted || pct <= dangerThreshold) {return '🔴';}
+            if (pct < criticalThreshold) {return '🟠';}
+            if (pct < warningThreshold) {return '🟡';}
             return '🟢';
         };
 
         const getProgressBarColor = (pct: number, isExhausted: boolean): string => {
-            if (isExhausted || pct <= dangerThreshold) return 'var(--danger)';
-            if (pct < criticalThreshold) return 'var(--warning-dark)';
-            if (pct < warningThreshold) return 'var(--warning)';
+            if (isExhausted || pct <= dangerThreshold) {return 'var(--danger)';}
+            if (pct < criticalThreshold) {return 'var(--warning-dark)';}
+            if (pct < warningThreshold) {return 'var(--warning)';}
             return 'var(--success)';
         };
 
@@ -284,9 +284,9 @@ export class AccountInfoWebview {
                     ${cycleInfo}
                     ${(() => {
                     // Chart Rendering Logic
-                    if (!AccountInfoWebview.latestTracker) return '';
+                    if (!AccountInfoWebview.latestTracker) {return '';}
                     const history = AccountInfoWebview.latestTracker.getHistory(model.modelId);
-                    if (!history || history.length < 2) return '';
+                    if (!history || history.length < 2) {return '';}
 
                     const width = 200;
                     const height = 40;
@@ -300,7 +300,7 @@ export class AccountInfoWebview {
                     const maxTime = history[history.length - 1].timestamp;
                     const timeRange = maxTime - minTime;
 
-                    if (timeRange <= 0) return ''; // No duration
+                    if (timeRange <= 0) {return '';} // No duration
 
                     const points = history.map(p => {
                         const x = padding + ((p.timestamp - minTime) / timeRange) * (width - 2 * padding);

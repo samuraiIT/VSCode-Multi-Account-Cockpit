@@ -18,7 +18,7 @@ export class TelegramCommandController {
 
     private async handleMessage(event: { chatId: string, text: string, username?: string, authorized: boolean }) { // Added authorized
         const text = event.text.trim();
-        if (!text.startsWith('/')) return;
+        if (!text.startsWith('/')) {return;}
 
         // Handle unauthorized
         if (!event.authorized) {

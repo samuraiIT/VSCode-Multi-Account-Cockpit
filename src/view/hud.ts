@@ -219,7 +219,7 @@ export class CockpitHUD {
                 await vscode.window.tabGroups.close(tabsToClose);
             }
         } catch (error) {
-
+            // Closing orphan tabs is best-effort.
         }
     }
 

@@ -3,6 +3,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { ProcessHunter } from './engine/hunter';
 import { ReactorCore } from './engine/reactor';
@@ -287,7 +288,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
             let indexData: { accounts?: Array<{ id: string; email: string }> };
             try {
-                const raw = require('fs').readFileSync(accountsIndexPath, 'utf8') as string;
+                const raw = fs.readFileSync(accountsIndexPath, 'utf8');
                 indexData = JSON.parse(raw) as { accounts?: Array<{ id: string; email: string }> };
             } catch {
                 vscode.window.showErrorMessage(
@@ -307,7 +308,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             for (const entry of entries) {
                 try {
                     const accountFilePath = path.join(accountsDirPath, `${entry.id}.json`);
-                    const raw = require('fs').readFileSync(accountFilePath, 'utf8') as string;
+                    const raw = fs.readFileSync(accountFilePath, 'utf8');
                     const accountData = JSON.parse(raw) as {
                         email?: string;
                         token?: { refresh_token?: string; email?: string };
@@ -351,8 +352,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
                         const skippedCount = result.skipped.filter(s => s.reason !== 'user_cancelled').length;
                         const parts: string[] = [];
-                        if (result.imported > 0) parts.push(`Synced ${result.imported} account(s)`);
-                        if (skippedCount > 0) parts.push(`${skippedCount} skipped`);
+                        if (result.imported > 0) {parts.push(`Synced ${result.imported} account(s)`);}
+                        if (skippedCount > 0) {parts.push(`${skippedCount} skipped`);}
 
                         if (result.imported > 0) {
                             void vscode.commands.executeCommand('agCockpit.accountTree.refresh');

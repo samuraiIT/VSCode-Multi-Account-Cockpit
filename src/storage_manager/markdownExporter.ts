@@ -116,7 +116,7 @@ export class MarkdownExporter {
         const increment = 100 / conversations.length;
 
         for (const conv of conversations) {
-            if (token?.isCancellationRequested) break;
+            if (token?.isCancellationRequested) {break;}
 
             progress?.report({
                 message: conv.title || conv.id,
@@ -152,13 +152,13 @@ export class MarkdownExporter {
         const messages: string[] = [];
         const filtered = strings.filter(s => {
             const t = s.trim();
-            if (t.length < 3) return false;
+            if (t.length < 3) {return false;}
             // Exclude UUIDs
-            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return false;
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) {return false;}
             // Exclude hex hashes
-            if (/^[0-9a-f]{16,64}$/i.test(t)) return false;
+            if (/^[0-9a-f]{16,64}$/i.test(t)) {return false;}
             // Exclude paths/URLs that aren't content
-            if (/^(file|https?):\/\//.test(t) && t.length < 200) return false;
+            if (/^(file|https?):\/\//.test(t) && t.length < 200) {return false;}
             return true;
         });
 
@@ -206,7 +206,7 @@ export class MarkdownExporter {
     ): Array<{ path: string; content: string; isMarkdown: boolean }> {
         const artifacts: Array<{ path: string; content: string; isMarkdown: boolean }> = [];
 
-        if (currentDepth >= maxDepth || !fs.existsSync(dirPath)) return artifacts;
+        if (currentDepth >= maxDepth || !fs.existsSync(dirPath)) {return artifacts;}
 
         // Skip system-generated directories to reduce noise
         const skipDirs = ['.system_generated', 'node_modules', '.git'];

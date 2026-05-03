@@ -65,7 +65,7 @@ export class ProcessPortDetector {
                 // Fallback: try alternative process names (fixes #12 — ARM64 Windows)
                 if (!processInfo && this.processNames.length > 1) {
                     for (const altName of this.processNames) {
-                        if (altName === this.processName) continue;
+                        if (altName === this.processName) {continue;}
                         console.log('PortDetector', `Primary process '${this.processName}' not found, trying '${altName}'...`);
                         try {
                             let altStdout: string;

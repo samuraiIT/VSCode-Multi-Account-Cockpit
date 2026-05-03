@@ -144,7 +144,7 @@ export class QuotaUsageTracker {
 
     public getEstimation(modelId: string): { speedPerHour: number, estimatedTimeRemainingMs: number | null } | null {
         const points = this.history.get(modelId);
-        if (!points || points.length < 2) return null;
+        if (!points || points.length < 2) {return null;}
 
         // Calculate speed based on last 24h or available window
         const now = Date.now();
@@ -160,7 +160,7 @@ export class QuotaUsageTracker {
         }
 
         const recentPoints = points.slice(startIndex);
-        if (recentPoints.length < 2) return null;
+        if (recentPoints.length < 2) {return null;}
 
         // Detect reset: if we find a point where usage < previous usage (significantly),
         // we should only consider points AFTER the reset.
@@ -185,17 +185,17 @@ export class QuotaUsageTracker {
         const oldest = usagePoints[0];
 
         const timeDiffHours = (newest.timestamp - oldest.timestamp) / (1000 * 60 * 60);
-        if (timeDiffHours < 0.1) return null;
+        if (timeDiffHours < 0.1) {return null;}
 
         const usageDiff = newest.usage - oldest.usage;
-        if (usageDiff < 0) return null; // Should not happen with logic above
+        if (usageDiff < 0) {return null;} // Should not happen with logic above
 
         const speed = usageDiff / timeDiffHours; // % per hour
         return this.calcResult(speed, newest.usage);
     }
 
     private calcResult(speed: number, currentUsage: number) {
-        if (speed <= 0) return { speedPerHour: 0, estimatedTimeRemainingMs: null };
+        if (speed <= 0) {return { speedPerHour: 0, estimatedTimeRemainingMs: null };}
 
         const remainingUsage = 100 - currentUsage;
         const hoursRemaining = remainingUsage / speed;

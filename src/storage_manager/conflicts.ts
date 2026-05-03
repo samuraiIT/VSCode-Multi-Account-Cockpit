@@ -44,7 +44,7 @@ export async function resolveConflictsCommand(brainDir: string, convDir: string)
                     if (fs.existsSync(taskPath)) {
                         const content = fs.readFileSync(taskPath, 'utf8');
                         const m = content.match(/^#\s*Task:?\s*(.*)$/im);
-                        if (m && m[1]) title = m[1].trim();
+                        if (m && m[1]) {title = m[1].trim();}
                     }
                 } catch {
                     // ignore
@@ -84,7 +84,7 @@ export async function resolveConflictsCommand(brainDir: string, convDir: string)
         placeHolder: lm.t("Found {0} conflict copies. Select one to resolve.", conflicts.length)
     });
 
-    if (!selected) return;
+    if (!selected) {return;}
 
     const c = selected.conflict;
 
@@ -119,7 +119,7 @@ export async function resolveConflictsCommand(brainDir: string, convDir: string)
             fs.rmSync(path.join(brainDir, c.conflictId), { recursive: true, force: true });
             // Delete conflict .pb
             const pbPath = path.join(convDir, `${c.conflictId}.pb`);
-            if (fs.existsSync(pbPath)) fs.unlinkSync(pbPath);
+            if (fs.existsSync(pbPath)) {fs.unlinkSync(pbPath);}
 
             vscode.window.showInformationMessage(lm.t("Conflict resolved: Start version kept."));
         } catch (e: any) {
@@ -138,8 +138,8 @@ export async function resolveConflictsCommand(brainDir: string, convDir: string)
             const conflictPb = path.join(convDir, `${c.conflictId}.pb`);
             const originalPb = path.join(convDir, `${c.originalId}.pb`);
 
-            if (fs.existsSync(originalPb)) fs.unlinkSync(originalPb);
-            if (fs.existsSync(conflictPb)) fs.renameSync(conflictPb, originalPb);
+            if (fs.existsSync(originalPb)) {fs.unlinkSync(originalPb);}
+            if (fs.existsSync(conflictPb)) {fs.renameSync(conflictPb, originalPb);}
 
             vscode.window.showInformationMessage(lm.t("Conflict resolved: Conflict version kept."));
         } catch (e: any) {

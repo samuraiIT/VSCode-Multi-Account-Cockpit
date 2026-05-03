@@ -6,8 +6,6 @@ import { LocalizationManager } from './l10n/localizationManager';
 
 const LEGACY_EXT_NAME = 'antigravity-storage-manager';
 const CONFIG_ROOT = 'multiCockpit';
-const MANAGED_BACKUP_FILE_PREFIX = 'backup-';
-const BACKUP_FILE_EXTENSION = '.zip';
 
 function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -125,13 +123,13 @@ export class BackupManager {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             return {
                 directoryPath: defaultDirectory,
-                filePath: path.join(defaultDirectory, `${MANAGED_BACKUP_FILE_PREFIX}${timestamp}${BACKUP_FILE_EXTENSION}`),
+                filePath: path.join(defaultDirectory, `backup-${timestamp}.zip`),
                 shouldApplyRetentionCleanup: true,
             };
         }
 
         const normalizedTarget = path.resolve(targetPath);
-        const looksLikeZipFile = normalizedTarget.toLowerCase().endsWith(BACKUP_FILE_EXTENSION);
+        const looksLikeZipFile = normalizedTarget.toLowerCase().endsWith('.zip');
 
         if (looksLikeZipFile) {
             const directoryPath = path.dirname(normalizedTarget);
@@ -147,7 +145,7 @@ export class BackupManager {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         return {
             directoryPath: normalizedTarget,
-            filePath: path.join(normalizedTarget, `${MANAGED_BACKUP_FILE_PREFIX}${timestamp}${BACKUP_FILE_EXTENSION}`),
+            filePath: path.join(normalizedTarget, `backup-${timestamp}.zip`),
             shouldApplyRetentionCleanup: false,
         };
     }
@@ -194,11 +192,7 @@ export class BackupManager {
         try {
             const cutoffMs = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
             const files = fs.readdirSync(backupDir)
-                .filter((file) => {
-                    const normalizedFile = file.toLowerCase();
-                    return normalizedFile.startsWith(MANAGED_BACKUP_FILE_PREFIX)
-                        && normalizedFile.endsWith(BACKUP_FILE_EXTENSION);
-                })
+                .filter((file) => file.toLowerCase().endsWith('.zip'))
                 .map((file) => ({
                     path: path.join(backupDir, file),
                     modifiedAt: fs.statSync(path.join(backupDir, file)).mtime.getTime(),

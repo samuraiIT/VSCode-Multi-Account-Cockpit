@@ -92,8 +92,8 @@ export class StatusBarManager implements vscode.Disposable {
     const cfg = vscode.workspace.getConfiguration('multiAccountCockpit');
     const warn = cfg.get<number>('warningThreshold', 30);
     const crit = cfg.get<number>('criticalThreshold', 10);
-    if (percent <= crit) return '🔴';
-    if (percent <= warn) return '🟡';
+    if (percent <= crit) {return '🔴';}
+    if (percent <= warn) {return '🟡';}
     return '🟢';
   }
 

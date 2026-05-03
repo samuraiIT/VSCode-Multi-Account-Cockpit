@@ -126,8 +126,10 @@ class CredentialStorage {
                     cockpitToolsWs.notifyDataChanged('extension_credential_updated');
                 }
             }).catch(() => {
+                // Best-effort sync only.
             });
         } catch {
+            // Cockpit Tools bridge is optional.
         }
     }
     
@@ -152,11 +154,14 @@ class CredentialStorage {
                             logger.warn(`[CredentialStorage] Sync account to Cockpit Tools failed: ${result.message}`);
                         }
                     }).catch(() => {
+                        // Best-effort sync only.
                     });
                 }
             }).catch(() => {
+                // Best-effort sync only.
             });
         } catch {
+            // Cockpit Tools bridge is optional.
         }
     }
     
@@ -174,11 +179,14 @@ class CredentialStorage {
                             logger.warn(`[CredentialStorage] Notify Cockpit Tools delete account failed: ${result.message}`);
                         }
                     }).catch(() => {
+                        // Best-effort sync only.
                     });
                 }
             }).catch(() => {
+                // Best-effort sync only.
             });
         } catch {
+            // Cockpit Tools bridge is optional.
         }
     }
     

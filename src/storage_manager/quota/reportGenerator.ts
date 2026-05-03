@@ -44,10 +44,10 @@ export function generateQuotaReportMarkdown(snapshot: QuotaSnapshot, pinnedModel
                 md += `- ${credText}: \`${cred.available} / ${cred.monthly}\` (${cred.remainingPercentage.toFixed(1)}% ${availText})\n\n`;
             }
         }
-        if (isTelegram) md += `\n`;
+        if (isTelegram) {md += `\n`;}
     }
 
-    if (!isTelegram) md += '---\n\n';
+    if (!isTelegram) {md += '---\n\n';}
 
     const relevantModels = snapshot.models.filter(m => pinnedModels.includes(m.modelId) || pinnedModels.includes(m.label));
 

@@ -106,9 +106,9 @@ export class LocalizationManager {
     }
 
     public formatDateTime(date: Date | string | number): string {
-        if (!date) return '';
+        if (!date) {return '';}
         const d = (typeof date === 'string' || typeof date === 'number') ? new Date(date) : date;
-        if (isNaN(d.getTime())) return '';
+        if (isNaN(d.getTime())) {return '';}
         return d.toLocaleString(this.currentLanguage, {
             year: 'numeric',
             month: '2-digit',
@@ -123,9 +123,9 @@ export class LocalizationManager {
      * Format just the date (no time) according to the current locale
      */
     public formatDate(date: Date | string): string {
-        if (!date) return '';
+        if (!date) {return '';}
         const d = typeof date === 'string' ? new Date(date) : date;
-        if (isNaN(d.getTime())) return '';
+        if (isNaN(d.getTime())) {return '';}
         return d.toLocaleDateString(this.currentLanguage);
     }
 }

@@ -44,7 +44,7 @@ export class CockpitToolsImporter {
     candidates.push(path.join(os.homedir(), '.cockpit-tools'));
 
     for (const dir of candidates) {
-      if (fs.existsSync(dir)) return dir;
+      if (fs.existsSync(dir)) {return dir;}
     }
     return null;
   }
@@ -103,7 +103,7 @@ export class CockpitToolsImporter {
         'cockpit-tools',
         label
       );
-      if (isNew) added++; else updated++;
+      if (isNew) {added++;} else {updated++;}
     }
 
     return { added, updated };
@@ -133,7 +133,7 @@ export class CockpitToolsImporter {
     }
 
     for (const filePath of candidates) {
-      if (!fs.existsSync(filePath)) continue;
+      if (!fs.existsSync(filePath)) {continue;}
       try {
         const raw = fs.readFileSync(filePath, 'utf-8');
         const parsed: unknown = JSON.parse(raw);
@@ -165,7 +165,7 @@ export class CockpitToolsImporter {
   }
 
   private normaliseOne(item: unknown, platform: Platform): CockpitToolsAccount | null {
-    if (!item || typeof item !== 'object') return null;
+    if (!item || typeof item !== 'object') {return null;}
     const obj = item as Record<string, unknown>;
     return {
       id: String(obj['id'] ?? obj['accountId'] ?? obj['userId'] ?? ''),

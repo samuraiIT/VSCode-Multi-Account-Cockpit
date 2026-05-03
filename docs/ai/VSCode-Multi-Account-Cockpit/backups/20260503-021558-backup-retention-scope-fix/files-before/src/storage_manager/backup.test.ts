@@ -98,7 +98,7 @@ describe('BackupManager', () => {
         expect(fs.existsSync(path.dirname(explicitZip))).toBe(true);
     });
 
-    it('deletes only expired managed backups based on retention days', async () => {
+    it('deletes only expired zip backups based on retention days', async () => {
         multiConfigGet.mockImplementation((key: string, fallback?: unknown) => {
             if (key === 'backup.retentionDays') {
                 return 30;
@@ -109,28 +109,24 @@ describe('BackupManager', () => {
         const backupDir = path.join(tempRoot, 'retention');
         fs.mkdirSync(backupDir, { recursive: true });
 
-        const expiredManagedZip = path.join(backupDir, 'backup-expired.zip');
-        const recentManagedZip = path.join(backupDir, 'backup-recent.zip');
-        const foreignExpiredZip = path.join(backupDir, 'manual-export.zip');
+        const expiredZip = path.join(backupDir, 'expired.zip');
+        const recentZip = path.join(backupDir, 'recent.zip');
         const keepText = path.join(backupDir, 'notes.txt');
 
-        fs.writeFileSync(expiredManagedZip, 'expired', 'utf8');
-        fs.writeFileSync(recentManagedZip, 'recent', 'utf8');
-        fs.writeFileSync(foreignExpiredZip, 'foreign', 'utf8');
+        fs.writeFileSync(expiredZip, 'expired', 'utf8');
+        fs.writeFileSync(recentZip, 'recent', 'utf8');
         fs.writeFileSync(keepText, 'keep', 'utf8');
 
         const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
         const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
-        fs.utimesSync(expiredManagedZip, fortyDaysAgo, fortyDaysAgo);
-        fs.utimesSync(recentManagedZip, fiveDaysAgo, fiveDaysAgo);
-        fs.utimesSync(foreignExpiredZip, fortyDaysAgo, fortyDaysAgo);
+        fs.utimesSync(expiredZip, fortyDaysAgo, fortyDaysAgo);
+        fs.utimesSync(recentZip, fiveDaysAgo, fiveDaysAgo);
 
         const manager = new BackupManager(createContext(), tempRoot);
         await (manager as unknown as BackupManagerInternals).cleanOldBackups(backupDir);
 
-        expect(fs.existsSync(expiredManagedZip)).toBe(false);
-        expect(fs.existsSync(recentManagedZip)).toBe(true);
-        expect(fs.existsSync(foreignExpiredZip)).toBe(true);
+        expect(fs.existsSync(expiredZip)).toBe(false);
+        expect(fs.existsSync(recentZip)).toBe(true);
         expect(fs.existsSync(keepText)).toBe(true);
     });
 });

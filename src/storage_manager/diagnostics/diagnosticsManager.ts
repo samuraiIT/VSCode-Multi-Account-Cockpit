@@ -151,8 +151,8 @@ export class DiagnosticsManager {
             const total = states.length;
 
             let status: 'pass' | 'warn' | 'fail' = 'pass';
-            if (connected === 0) status = 'fail';
-            else if (connected < total) status = 'warn';
+            if (connected === 0) {status = 'fail';}
+            else if (connected < total) {status = 'warn';}
 
             const serverNames = states.map((s: any) => s.serverName || s.serverId || 'Unknown').join(', ');
 
@@ -178,7 +178,7 @@ export class DiagnosticsManager {
         const lm = LocalizationManager.getInstance();
         try {
             const client = this.authProvider.getOAuth2Client();
-            if (!client) throw new Error('No client');
+            if (!client) {throw new Error('No client');}
 
             const start = Date.now();
             // Perform a lightweight call, e.g. get user info or about
@@ -186,8 +186,8 @@ export class DiagnosticsManager {
             const duration = Date.now() - start;
 
             let status: 'pass' | 'warn' | 'fail' = 'pass';
-            if (duration > 2000) status = 'warn';
-            if (duration > 5000) status = 'fail';
+            if (duration > 2000) {status = 'warn';}
+            if (duration > 5000) {status = 'fail';}
 
             return {
                 id: 'latency',
