@@ -1,6 +1,6 @@
 /**
  * Reads all account types stored by Cockpit Tools in ~/.antigravity_cockpit/.
- * Provides a unified snapshot across the providers supported by cockpit-tools.
+ * Provides a unified snapshot across supported providers.
  */
 
 import * as fs from 'fs';
@@ -8,19 +8,38 @@ import * as path from 'path';
 import { getCockpitToolsSharedDir } from '../shared/antigravity_paths';
 import { logger } from '../shared/log_service';
 
+// Public types
+
+export type CockpitProviderKey =
+    | 'antigravity'
+    | 'codex'
+    | 'cursor'
+    | 'github_copilot'
+    | 'windsurf'
+    | 'kiro'
+    | 'gemini'
+    | 'codebuddy'
+    | 'codebuddy_cn'
+    | 'qoder'
+    | 'trae'
+    | 'zed';
+
 export interface CockpitAccount {
     id: string;
-    /** Primary display identity: email when available, otherwise login/user label */
+    /** Primary display identifier (email or provider-specific fallback) */
     email: string;
+    /** Optional human-readable name/login */
     displayName?: string;
+    /** Plan/tier string — provider-specific */
     plan?: string;
+    /** Whether this is the currently active account in Cockpit Tools */
     isCurrent: boolean;
     lastUsed?: number;
     createdAt?: number;
 }
 
 export interface CockpitProviderSection {
-    provider: string;
+    provider: CockpitProviderKey;
     displayName: string;
     icon: string;
     accounts: CockpitAccount[];
@@ -35,272 +54,261 @@ export interface AllCockpitAccountsSnapshot {
 
 interface GenericIndex {
     version?: string;
-    accounts: Array<Record<string, unknown>>;
+    accounts: unknown[];
     current_account_id?: string | null;
 }
 
-interface ProviderCurrentState {
-    version?: string;
-    current_accounts?: Record<string, string>;
-}
-
-interface ProviderDefinition {
-    provider: string;
-    fileName: string;
+interface ProviderConfig {
+    provider: CockpitProviderKey;
     displayName: string;
     icon: string;
-    emailFields: string[];
-    displayNameFields?: string[];
-    planFields?: string[];
-    usesSharedCurrentState?: boolean;
+    indexFiles: string[];
+    emailKeys: string[];
+    displayKeys: string[];
+    planKeys: string[];
+    hasCurrentAccountId: boolean;
 }
 
-const PROVIDER_CURRENT_STATE_FILE = 'provider_current_accounts.json';
-
-const PROVIDERS: ProviderDefinition[] = [
+const PROVIDER_CONFIGS: ProviderConfig[] = [
     {
         provider: 'antigravity',
-        fileName: 'accounts.json',
         displayName: 'Antigravity AI',
         icon: '🤖',
-        emailFields: ['email'],
-        displayNameFields: ['name'],
+        indexFiles: ['accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['name'],
+        planKeys: [],
+        hasCurrentAccountId: true,
     },
     {
         provider: 'codex',
-        fileName: 'codex_accounts.json',
         displayName: 'OpenAI Codex',
         icon: '🧠',
-        emailFields: ['email'],
-        displayNameFields: ['name'],
-        planFields: ['plan_type'],
+        indexFiles: ['codex_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['plan_type'],
+        hasCurrentAccountId: true,
     },
     {
         provider: 'cursor',
-        fileName: 'cursor_accounts.json',
         displayName: 'Cursor',
         icon: '📝',
-        emailFields: ['email'],
-        displayNameFields: ['name'],
-        planFields: ['membership_type'],
-        usesSharedCurrentState: true,
+        indexFiles: ['cursor_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['membership_type'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'github_copilot',
-        fileName: 'github_copilot_accounts.json',
         displayName: 'GitHub Copilot',
         icon: '🐙',
-        emailFields: ['github_email', 'email', 'github_login'],
-        displayNameFields: ['github_login'],
-        planFields: ['copilot_plan'],
-        usesSharedCurrentState: true,
+        indexFiles: ['github_copilot_accounts.json'],
+        emailKeys: ['github_email', 'email', 'github_login'],
+        displayKeys: ['github_login'],
+        planKeys: ['copilot_plan'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'windsurf',
-        fileName: 'windsurf_accounts.json',
         displayName: 'Windsurf',
         icon: '🌊',
-        emailFields: ['github_email', 'email', 'github_login'],
-        displayNameFields: ['github_login'],
-        planFields: ['copilot_plan', 'plan_name'],
-        usesSharedCurrentState: true,
+        indexFiles: ['windsurf_accounts.json'],
+        emailKeys: ['github_email', 'email', 'github_login'],
+        displayKeys: ['github_login'],
+        planKeys: ['copilot_plan'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'kiro',
-        fileName: 'kiro_accounts.json',
         displayName: 'Kiro',
-        icon: '🪁',
-        emailFields: ['email', 'user_email', 'display_name'],
-        displayNameFields: ['display_name', 'name'],
-        planFields: ['plan_name', 'plan_tier'],
-        usesSharedCurrentState: true,
+        icon: '⚡',
+        indexFiles: ['kiro_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['plan_name'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'gemini',
-        fileName: 'gemini_accounts.json',
-        displayName: 'Gemini',
-        icon: '✨',
-        emailFields: ['email', 'user_email'],
-        displayNameFields: ['display_name', 'name'],
-        planFields: ['plan_name', 'plan_tier'],
-        usesSharedCurrentState: true,
+        displayName: 'Gemini CLI',
+        icon: '💎',
+        indexFiles: ['gemini_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['plan_name'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'codebuddy',
-        fileName: 'codebuddy_accounts.json',
-        displayName: 'Codebuddy',
+        displayName: 'CodeBuddy',
         icon: '🧩',
-        emailFields: ['email', 'uid', 'nickname'],
-        displayNameFields: ['nickname', 'enterprise_name'],
-        planFields: ['plan_type', 'payment_type', 'status'],
-        usesSharedCurrentState: true,
+        indexFiles: ['codebuddy_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['plan_type'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'codebuddy_cn',
-        fileName: 'codebuddy_cn_accounts.json',
-        displayName: 'Codebuddy CN',
-        icon: '🈶',
-        emailFields: ['email', 'uid', 'nickname'],
-        displayNameFields: ['nickname', 'enterprise_name'],
-        planFields: ['plan_type', 'payment_type', 'status'],
-        usesSharedCurrentState: true,
-    },
-    {
-        provider: 'workbuddy',
-        fileName: 'workbuddy_accounts.json',
-        displayName: 'Workbuddy',
-        icon: '💼',
-        emailFields: ['email', 'uid', 'nickname'],
-        displayNameFields: ['nickname', 'enterprise_name'],
-        planFields: ['plan_name', 'plan_type', 'status'],
-        usesSharedCurrentState: true,
+        displayName: 'CodeBuddy CN',
+        icon: '🀄',
+        indexFiles: ['codebuddy_cn_accounts.json', 'workbuddy_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['plan_type'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'qoder',
-        fileName: 'qoder_accounts.json',
         displayName: 'Qoder',
-        icon: '🔧',
-        emailFields: ['email', 'uid', 'nickname'],
-        displayNameFields: ['nickname', 'display_name', 'name'],
-        planFields: ['plan_name', 'plan_type', 'status'],
-        usesSharedCurrentState: true,
+        icon: '📐',
+        indexFiles: ['qoder_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['plan_type'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'trae',
-        fileName: 'trae_accounts.json',
         displayName: 'Trae',
-        icon: '🚄',
-        emailFields: ['email', 'display_name', 'nickname'],
-        displayNameFields: ['display_name', 'nickname', 'name'],
-        planFields: ['plan_name', 'plan_type', 'status'],
-        usesSharedCurrentState: true,
+        icon: '🧭',
+        indexFiles: ['trae_accounts.json'],
+        emailKeys: ['email'],
+        displayKeys: ['email'],
+        planKeys: ['plan_type'],
+        hasCurrentAccountId: false,
     },
     {
         provider: 'zed',
-        fileName: 'zed_accounts.json',
         displayName: 'Zed',
-        icon: '⚡',
-        emailFields: ['email', 'github_login', 'display_name'],
-        displayNameFields: ['display_name', 'github_login'],
-        planFields: ['plan_raw', 'subscription_status'],
+        icon: '🔷',
+        indexFiles: ['zed_accounts.json'],
+        emailKeys: ['email', 'github_login', 'user_id'],
+        displayKeys: ['display_name', 'github_login'],
+        planKeys: ['plan_raw'],
+        hasCurrentAccountId: true,
     },
 ];
 
-function readJsonFile<T>(filePath: string): T | null {
-    try {
-        if (!fs.existsSync(filePath)) {
-            return null;
-        }
-        const content = fs.readFileSync(filePath, 'utf-8');
-        return JSON.parse(content) as T;
-    } catch (err) {
-        logger.warn(`[AllCockpitAccounts] Failed to parse ${path.basename(filePath)}: ${err instanceof Error ? err.message : String(err)}`);
-        return null;
-    }
-}
-
-function str(value: unknown): string {
-    return value === null || value === undefined ? '' : String(value).trim();
-}
-
-function firstNonEmptyString(record: Record<string, unknown>, fields: string[]): string | undefined {
-    for (const field of fields) {
-        const value = str(record[field]);
-        if (value) {
-            return value;
-        }
-    }
-    return undefined;
-}
-
-function firstFiniteNumber(record: Record<string, unknown>, fields: string[]): number | undefined {
-    for (const field of fields) {
-        const value = record[field];
-        if (typeof value === 'number' && Number.isFinite(value)) {
-            return value;
-        }
-    }
-    return undefined;
-}
-
-function readProviderCurrentState(sharedDir: string): Record<string, string> {
-    const state = readJsonFile<ProviderCurrentState>(path.join(sharedDir, PROVIDER_CURRENT_STATE_FILE));
-    return state?.current_accounts ?? {};
-}
-
-function resolveCurrentAccountId(
-    definition: ProviderDefinition,
-    index: GenericIndex | null,
-    sharedCurrentState: Record<string, string>,
-): string | null {
-    const inlineCurrentId = str(index?.current_account_id);
-    if (inlineCurrentId) {
-        return inlineCurrentId;
-    }
-
-    if (!definition.usesSharedCurrentState) {
-        return null;
-    }
-
-    const sharedCurrentId = str(sharedCurrentState[definition.provider]);
-    return sharedCurrentId || null;
-}
-
-function readProviderSection(
-    sharedDir: string,
-    sharedCurrentState: Record<string, string>,
-    definition: ProviderDefinition,
-): CockpitProviderSection {
-    const index = readJsonFile<GenericIndex>(path.join(sharedDir, definition.fileName));
-    const currentId = resolveCurrentAccountId(definition, index, sharedCurrentState);
-
-    const accounts: CockpitAccount[] = (index?.accounts ?? [])
-        .map((entry): CockpitAccount | null => {
-            const id = firstNonEmptyString(entry, ['id']);
-            if (!id) {
-                return null;
+function readIndexFile(sharedDir: string, indexFiles: string[]): GenericIndex | null {
+    for (const indexFile of indexFiles) {
+        const filePath = path.join(sharedDir, indexFile);
+        try {
+            if (!fs.existsSync(filePath)) {
+                continue;
             }
+            const content = fs.readFileSync(filePath, 'utf-8');
+            const parsed = JSON.parse(content) as GenericIndex;
+            if (!Array.isArray(parsed.accounts)) {
+                continue;
+            }
+            return parsed;
+        } catch {
+            continue;
+        }
+    }
+    return null;
+}
 
-            const identity = firstNonEmptyString(entry, definition.emailFields)
-                ?? firstNonEmptyString(entry, definition.displayNameFields ?? [])
-                ?? id;
-            const displayName = firstNonEmptyString(entry, definition.displayNameFields ?? []);
-            const normalizedDisplayName = displayName && displayName !== identity ? displayName : undefined;
+function toRecord(val: unknown): Record<string, unknown> | null {
+    if (!val || typeof val !== 'object') {
+        return null;
+    }
+    return val as Record<string, unknown>;
+}
 
-            return {
-                id,
-                email: identity,
-                displayName: normalizedDisplayName,
-                plan: firstNonEmptyString(entry, definition.planFields ?? []),
-                isCurrent: currentId === id,
-                lastUsed: firstFiniteNumber(entry, ['last_used', 'lastUsed', 'usage_updated_at', 'updated_at']),
-                createdAt: firstFiniteNumber(entry, ['created_at', 'createdAt']),
-            };
-        })
-        .filter((account): account is CockpitAccount => account !== null);
+function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
+    for (const key of keys) {
+        const value = obj[key];
+        if (typeof value === 'string' && value.trim().length > 0) {
+            return value.trim();
+        }
+    }
+    return undefined;
+}
+
+function numOrUndef(val: unknown): number | undefined {
+    if (typeof val === 'number' && Number.isFinite(val)) {
+        return val;
+    }
+    if (typeof val === 'string' && val.trim().length > 0) {
+        const parsed = Number(val);
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+    return undefined;
+}
+
+function mapAccountSummary(
+    summary: unknown,
+    config: ProviderConfig,
+    currentAccountId: string | null,
+): CockpitAccount | null {
+    const row = toRecord(summary);
+    if (!row) {
+        return null;
+    }
+
+    const id = pickString(row, ['id', 'account_id', 'user_id', 'github_login']);
+    if (!id) {
+        return null;
+    }
+
+    const email = pickString(row, config.emailKeys) ?? id;
+    const displayName = pickString(row, config.displayKeys);
+    const plan = pickString(row, config.planKeys);
+    const isCurrent = Boolean(
+        config.hasCurrentAccountId
+        && currentAccountId
+        && id === currentAccountId,
+    );
 
     return {
-        provider: definition.provider,
-        displayName: definition.displayName,
-        icon: definition.icon,
-        accounts,
-        currentAccountId: currentId,
+        id,
+        email,
+        displayName,
+        plan,
+        isCurrent,
+        lastUsed: numOrUndef(row['last_used']),
+        createdAt: numOrUndef(row['created_at']),
     };
 }
 
+function readProviderSection(sharedDir: string, config: ProviderConfig): CockpitProviderSection {
+    const index = readIndexFile(sharedDir, config.indexFiles);
+    const currentAccountId = config.hasCurrentAccountId ? (index?.current_account_id ?? null) : null;
+    const accounts = (index?.accounts ?? [])
+        .map((summary) => mapAccountSummary(summary, config, currentAccountId))
+        .filter((account): account is CockpitAccount => Boolean(account));
+
+    return {
+        provider: config.provider,
+        displayName: config.displayName,
+        icon: config.icon,
+        accounts,
+        currentAccountId,
+    };
+}
+
+/**
+ * Reads all Cockpit Tools account index files and returns a unified snapshot.
+ * Never throws — errors per-provider are logged and that section is skipped.
+ */
 export function readAllCockpitAccounts(): AllCockpitAccountsSnapshot {
     const sharedDir = getCockpitToolsSharedDir();
-    const sharedCurrentState = readProviderCurrentState(sharedDir);
     const sections: CockpitProviderSection[] = [];
 
-    for (const definition of PROVIDERS) {
+    for (const config of PROVIDER_CONFIGS) {
         try {
-            const section = readProviderSection(sharedDir, sharedCurrentState, definition);
+            const section = readProviderSection(sharedDir, config);
             if (section.accounts.length > 0) {
                 sections.push(section);
             }
         } catch (err) {
-            logger.warn(`[AllCockpitAccounts] Error reading ${definition.provider}: ${err instanceof Error ? err.message : String(err)}`);
+            logger.warn(`[AllCockpitAccounts] Error reading ${config.provider}: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
 

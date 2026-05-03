@@ -135,6 +135,12 @@
         "icon": "$(cloud-upload)"
       },
       {
+        "command": "agCockpit.autoImportCockpitAccounts",
+        "title": "Auto Import All Accounts from Cockpit Tools",
+        "category": "Antigravity",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "agCockpit.syncFromCockpitTools",
         "title": "Sync Antigravity Accounts from Cockpit Tools",
         "category": "Antigravity",
@@ -389,6 +395,11 @@
           "type": "boolean",
           "default": false,
           "description": "Mask sensitive data (email, etc.) in the Plan Details panel."
+        },
+        "agCockpit.cockpitToolsAutoImportOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically import all Cockpit Tools account snapshots and sync Antigravity tokens on startup."
         },
         "multiCockpit.backup.retentionDays": {
           "type": "number",

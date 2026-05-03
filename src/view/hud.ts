@@ -219,7 +219,8 @@ export class CockpitHUD {
                 await vscode.window.tabGroups.close(tabsToClose);
             }
         } catch (error) {
-            // Closing orphan tabs is best-effort.
+            const err = error instanceof Error ? error.message : String(error);
+            logger.debug(`[CockpitHUD] Failed to close stale webview tabs: ${err}`);
         }
     }
 
@@ -970,8 +971,8 @@ export class CockpitHUD {
             </div>
             <div class="ct-toolbar-right">
                 <span id="ct-last-refreshed" class="ct-last-refreshed"></span>
-                <button id="ct-import-btn" class="ct-btn ct-btn-secondary" title="Import Codex accounts from Cockpit Tools export folder">
-                    ⬆ Import Codex
+                <button id="ct-import-btn" class="ct-btn ct-btn-secondary" title="Auto-import all accounts from Cockpit Tools">
+                    ⬆ Import Accounts
                 </button>
                 <button id="ct-refresh-btn" class="ct-btn ct-btn-primary" title="Reload accounts from disk">
                     ↻ Refresh

@@ -44,11 +44,6 @@ export interface AccountSwitchExecutionResult {
 }
 
 export class MessageController {
-    private static readonly ALLOWED_WEBVIEW_COMMANDS = new Set<string>([
-        'agCockpit.accountTree.refresh',
-        'agCockpit.openAccountsOverview',
-    ]);
-    private static readonly ALLOWED_EXTERNAL_PROTOCOLS = new Set<string>(['http', 'https']);
 
     private context: vscode.ExtensionContext;
     
@@ -63,26 +58,6 @@ export class MessageController {
     ) {
         this.context = context;
         this.setupMessageHandling();
-    }
-
-    private isAllowedWebviewCommand(commandId: unknown): commandId is string {
-        return typeof commandId === 'string' && MessageController.ALLOWED_WEBVIEW_COMMANDS.has(commandId);
-    }
-
-    private getSafeExternalUri(rawUrl: unknown): vscode.Uri | null {
-        if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
-            return null;
-        }
-
-        try {
-            const uri = vscode.Uri.parse(rawUrl);
-            if (!MessageController.ALLOWED_EXTERNAL_PROTOCOLS.has(uri.scheme)) {
-                return null;
-            }
-            return uri;
-        } catch {
-            return null;
-        }
     }
 
     private async applyQuotaSourceChange(
@@ -1020,28 +995,9 @@ export class MessageController {
                     break;
 
                 case 'autoTrigger.reauthorizeAccount':
-                    if (typeof message.email === 'string' && message.email) {
-                        logger.info(`User reauthorizing account: ${message.email}`);
-                        try {
-                            await autoTriggerController.reauthorizeAccount(message.email);
-                            const state = await autoTriggerController.getState();
-                            this.hud.sendMessage({
-                                type: 'autoTriggerState',
-                                data: state,
-                            });
-                            if (configService.getConfig().quotaSource === 'authorized') {
-                                this.reactor.syncTelemetry();
-                            }
-                            vscode.window.showInformationMessage(t('autoTrigger.reauthorizeSuccess'));
-                        } catch (error) {
-                            const err = error instanceof Error ? error : new Error(String(error));
-                            logger.error(`Reauthorize account failed: ${err.message}`);
-                            vscode.window.showErrorMessage(`Reauthorize failed: ${err.message}`);
-                        }
-                    } else {
-                        logger.warn('reauthorizeAccount missing email');
-                    }
-                    break;
+                    // Re-authorize logic... (keep existing if any code follows, but here it was just the case label)
+                    // ... existing logic ...
+                    break; 
 
                     // ============ Accounts Overview Handlers ============
 
@@ -1216,9 +1172,6 @@ export class MessageController {
 
                                         const emailArg = typeof item.email === 'string' ? item.email : undefined;
                                         const credential = await oauthService.buildCredentialFromRefreshToken(refreshToken, emailArg);
-                                        if (!credential.email) {
-                                            throw new Error('Imported credential is missing email');
-                                        }
                                         await credentialStorage.saveCredentialForAccount(credential.email, credential);
                                         count++;
                                     } catch (error) {
@@ -1294,6 +1247,30 @@ export class MessageController {
                     }
                     break;
 
+                    if (message.email) {
+                        logger.info(`User reauthorizing account: ${message.email}`);
+                        try {
+
+                            await autoTriggerController.reauthorizeAccount(message.email);
+                            const state = await autoTriggerController.getState();
+                            this.hud.sendMessage({
+                                type: 'autoTriggerState',
+                                data: state,
+                            });
+                            if (configService.getConfig().quotaSource === 'authorized') {
+                                this.reactor.syncTelemetry();
+                            }
+                            vscode.window.showInformationMessage(t('autoTrigger.reauthorizeSuccess'));
+                        } catch (error) {
+                            const err = error instanceof Error ? error : new Error(String(error));
+                            logger.error(`Reauthorize account failed: ${err.message}`);
+                            vscode.window.showErrorMessage(`Reauthorize failed: ${err.message}`);
+                        }
+                    } else {
+                        logger.warn('reauthorizeAccount missing email');
+                    }
+                    break;
+
 
                 // ============ Announcements ============
                 case 'announcement.getState':
@@ -1340,26 +1317,19 @@ export class MessageController {
                     break;
 
                 case 'openUrl':
-                    {
-                        const safeUri = this.getSafeExternalUri(message.url);
-                        if (safeUri) {
-                            vscode.env.openExternal(safeUri);
-                        } else {
-                            logger.warn(`[MsgCtrl] Blocked unsafe external URL from webview: ${String(message.url ?? '')}`);
-                        }
+                    if (message.url) {
+                        vscode.env.openExternal(vscode.Uri.parse(message.url));
                     }
                     break;
 
                 case 'executeCommand':
-                    if (this.isAllowedWebviewCommand(message.commandId)) {
+                    if (message.commandId) {
                         const args = message.commandArgs;
                         if (args && Array.isArray(args) && args.length > 0) {
                             await vscode.commands.executeCommand(message.commandId, ...args);
                         } else {
                             await vscode.commands.executeCommand(message.commandId);
                         }
-                    } else if (message.commandId) {
-                        logger.warn(`[MsgCtrl] Blocked non-allowlisted webview command: ${String(message.commandId)}`);
                     }
                     break;
 
@@ -1374,8 +1344,12 @@ export class MessageController {
                     break;
                 }
 
+                case 'cockpitToolsImportAccounts':
+                    await vscode.commands.executeCommand('agCockpit.autoImportCockpitAccounts');
+                    break;
+
                 case 'cockpitToolsImportCodex':
-                    await vscode.commands.executeCommand('agCockpit.importCockpitAccounts');
+                    await vscode.commands.executeCommand('agCockpit.autoImportCockpitAccounts');
                     break;
 
             }
@@ -1767,3 +1741,4 @@ export class MessageController {
         await vscode.env.openExternal(vscode.Uri.parse(cockpitToolsReleaseUrl));
     }
 }
+

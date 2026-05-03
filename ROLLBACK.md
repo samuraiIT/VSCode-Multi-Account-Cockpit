@@ -35,6 +35,26 @@ Remove the storage manager integration without losing the cockpit base:
 
 5. Re-run `npm install && npm run build`.
 
+## Rollback Cockpit Tools auto-import integration
+
+This workspace now has a pre-change backup at:
+
+`docs/backups/2026-05-03-cockpit-auto-import/`
+
+To roll back only this integration:
+
+1. Restore these files from the backup copy:
+   - `src/services/cockpitToolsAllAccounts.ts`
+   - `src/view/webview/cockpit_tools.js`
+   - `src/view/hud.ts`
+   - `src/controller/message_controller.ts`
+   - `src/shared/types.ts`
+   - `src/extension.ts`
+   - `package.json`
+   - `README.md`
+2. Run `npm install` (if package metadata changed).
+3. Run `npm run build`.
+
 ## Rollback package.json identity
 
 Revert `name`, `displayName`, `description`, `version` back to:

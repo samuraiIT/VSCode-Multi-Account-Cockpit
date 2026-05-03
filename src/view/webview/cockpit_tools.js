@@ -2,14 +2,14 @@
  * Antigravity Cockpit - Cockpit Tools All Accounts Tab
  *
  * Renders a unified view of every account stored in ~/.antigravity_cockpit/
- * across all providers currently exported by Cockpit Tools.
+ * across all supported Cockpit Tools providers.
  *
  * Message protocol (extension → webview):
  *   { type: 'cockpitToolsUpdate', data: AllCockpitAccountsSnapshot }
  *
  * Message protocol (webview → extension):
  *   { type: 'getCockpitToolsAccounts' }
- *   { type: 'cockpitToolsImportCodex' }
+ *   { type: 'cockpitToolsImportAccounts' }
  */
 
 // eslint-disable-next-line no-redeclare
@@ -73,15 +73,14 @@
             case 'codex': return '#10a37f';
             case 'cursor': return '#3b82f6';
             case 'github_copilot': return '#e8761a';
-            case 'windsurf': return '#0f766e';
-            case 'kiro': return '#7c3aed';
-            case 'gemini': return '#0ea5e9';
-            case 'codebuddy': return '#2563eb';
-            case 'codebuddy_cn': return '#dc2626';
-            case 'workbuddy': return '#9333ea';
-            case 'qoder': return '#ca8a04';
-            case 'trae': return '#db2777';
-            case 'zed': return '#111827';
+            case 'windsurf': return '#06b6d4';
+            case 'kiro': return '#f59e0b';
+            case 'gemini': return '#a855f7';
+            case 'codebuddy': return '#22c55e';
+            case 'codebuddy_cn': return '#ef4444';
+            case 'qoder': return '#f97316';
+            case 'trae': return '#14b8a6';
+            case 'zed': return '#6366f1';
             default: return '#6b7280';
         }
     }
@@ -243,7 +242,7 @@
     }
 
     function triggerImport() {
-        vscode.postMessage({ command: 'cockpitToolsImportCodex' });
+        vscode.postMessage({ command: 'cockpitToolsImportAccounts' });
     }
 
     // Event listeners

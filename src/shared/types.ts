@@ -48,7 +48,6 @@ export interface QuotaSnapshot {
     models: ModelQuotaInfo[];
     allModels?: ModelQuotaInfo[];
     groups?: QuotaGroup[];
-    activeModelId?: string;
     isConnected: boolean;
     errorMessage?: string;
     localAccountEmail?: string;
@@ -313,6 +312,7 @@ export type WebviewMessageType =
     | 'openDashboard'
     // Cockpit Tools All Accounts Tab
     | 'getCockpitToolsAccounts'
+    | 'cockpitToolsImportAccounts'
     | 'cockpitToolsImportCodex';
 
 export interface WebviewMessage {

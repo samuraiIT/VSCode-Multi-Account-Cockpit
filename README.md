@@ -31,6 +31,14 @@ Unified view of **all accounts** across all providers read from `~/.antigravity_
 | OpenAI Codex | `codex_accounts.json` |
 | Cursor | `cursor_accounts.json` |
 | GitHub Copilot | `github_copilot_accounts.json` |
+| Windsurf | `windsurf_accounts.json` |
+| Kiro | `kiro_accounts.json` |
+| Gemini CLI | `gemini_accounts.json` |
+| CodeBuddy | `codebuddy_accounts.json` |
+| CodeBuddy CN | `codebuddy_cn_accounts.json` / `workbuddy_accounts.json` |
+| Qoder | `qoder_accounts.json` |
+| Trae | `trae_accounts.json` |
+| Zed | `zed_accounts.json` |
 
 Search by email, filter by provider, see plan badges and active account status.
 
@@ -107,6 +115,7 @@ One-click diagnostics report: internet connectivity, quota system health, sync l
 |---|---|
 | `agCockpit.open` | Open Cockpit Dashboard |
 | `agCockpit.refresh` | Refresh quota data |
+| `agCockpit.autoImportCockpitAccounts` | Auto import all Cockpit Tools accounts |
 | `agCockpit.importCockpitAccounts` | Import accounts from Cockpit Tools export |
 | `agCockpit.syncFromCockpitTools` | Sync Antigravity accounts from Cockpit Tools |
 
@@ -139,6 +148,7 @@ One-click diagnostics report: internet connectivity, quota system health, sync l
 | `agCockpit.criticalThreshold` | `10` | Critical threshold (%) |
 | `agCockpit.notificationEnabled` | `true` | Enable notifications |
 | `agCockpit.quotaSource` | `authorized` | Quota source: `local` / `authorized` |
+| `agCockpit.cockpitToolsAutoImportOnStartup` | `true` | Auto-import Cockpit Tools accounts on startup |
 | `multiCockpit.backup.autoBackup` | `true` | Auto-backup on schedule |
 | `multiCockpit.backup.retentionDays` | `30` | Backup retention (days) |
 | `multiCockpit.sync.enabled` | `false` | Enable Google Drive sync |
