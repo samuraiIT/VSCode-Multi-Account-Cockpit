@@ -995,9 +995,31 @@ export class MessageController {
                     break;
 
                 case 'autoTrigger.reauthorizeAccount':
-                    // Re-authorize logic... (keep existing if any code follows, but here it was just the case label)
-                    // ... existing logic ...
-                    break; 
+                    {
+                        const email = message.email;
+                        if (email) {
+                            logger.info(`User reauthorizing account: ${email}`);
+                            try {
+                                await autoTriggerController.reauthorizeAccount(email);
+                                const state = await autoTriggerController.getState();
+                                this.hud.sendMessage({
+                                    type: 'autoTriggerState',
+                                    data: state,
+                                });
+                                if (configService.getConfig().quotaSource === 'authorized') {
+                                    this.reactor.syncTelemetry();
+                                }
+                                vscode.window.showInformationMessage(t('autoTrigger.reauthorizeSuccess'));
+                            } catch (error) {
+                                const err = error instanceof Error ? error : new Error(String(error));
+                                logger.error(`Reauthorize account failed: ${err.message}`);
+                                vscode.window.showErrorMessage(`Reauthorize failed: ${err.message}`);
+                            }
+                        } else {
+                            logger.warn('reauthorizeAccount missing email');
+                        }
+                    }
+                    break;
 
                     // ============ Accounts Overview Handlers ============
 
@@ -1172,8 +1194,10 @@ export class MessageController {
 
                                         const emailArg = typeof item.email === 'string' ? item.email : undefined;
                                         const credential = await oauthService.buildCredentialFromRefreshToken(refreshToken, emailArg);
-                                        await credentialStorage.saveCredentialForAccount(credential.email, credential);
-                                        count++;
+                                        if (credential.email) {
+                                            await credentialStorage.saveCredentialForAccount(credential.email, credential);
+                                            count++;
+                                        }
                                     } catch (error) {
                                         const err = error instanceof Error ? error : new Error(String(error));
                                         errors++;
@@ -1246,31 +1270,6 @@ export class MessageController {
                         });
                     }
                     break;
-
-                    if (message.email) {
-                        logger.info(`User reauthorizing account: ${message.email}`);
-                        try {
-
-                            await autoTriggerController.reauthorizeAccount(message.email);
-                            const state = await autoTriggerController.getState();
-                            this.hud.sendMessage({
-                                type: 'autoTriggerState',
-                                data: state,
-                            });
-                            if (configService.getConfig().quotaSource === 'authorized') {
-                                this.reactor.syncTelemetry();
-                            }
-                            vscode.window.showInformationMessage(t('autoTrigger.reauthorizeSuccess'));
-                        } catch (error) {
-                            const err = error instanceof Error ? error : new Error(String(error));
-                            logger.error(`Reauthorize account failed: ${err.message}`);
-                            vscode.window.showErrorMessage(`Reauthorize failed: ${err.message}`);
-                        }
-                    } else {
-                        logger.warn('reauthorizeAccount missing email');
-                    }
-                    break;
-
 
                 // ============ Announcements ============
                 case 'announcement.getState':

@@ -51,6 +51,8 @@ export interface QuotaSnapshot {
     isConnected: boolean;
     errorMessage?: string;
     localAccountEmail?: string;
+    /** Currently active model ID (set by ReactorCore.setActiveModelId) */
+    activeModelId?: string;
 }
 
 export enum QuotaLevel {
