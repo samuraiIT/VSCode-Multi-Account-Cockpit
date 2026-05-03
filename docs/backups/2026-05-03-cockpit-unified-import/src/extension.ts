@@ -27,10 +27,8 @@ import { debugLocalCredentialImport } from './auto_trigger/local_auth_importer';
 import { importAccountsFromDir } from './services/importService';
 import { antigravityToolsSyncService } from './antigravityTools_sync';
 import { announcementService } from './announcement';
-import { readAllCockpitAccounts, readAllCockpitAccountsFromDir } from './services/cockpitToolsAllAccounts';
+import { readAllCockpitAccounts } from './services/cockpitToolsAllAccounts';
 import { activateStorageManager } from './storage_manager/index';
-import { AccountManager } from './accountManager';
-import { CockpitToolsImporter } from './cockpitToolsImporter';
 
 // Account Tree View
 import { AccountTreeProvider, registerAccountTreeCommands } from './view/accountTree';
@@ -56,8 +54,6 @@ let statusBar: StatusBarController;
 let _commandController: CommandController;
 let _messageController: MessageController;
 let _telemetryController: TelemetryController;
-let unifiedAccountManager: AccountManager;
-let unifiedCockpitToolsImporter: CockpitToolsImporter;
 
 let systemOnline = false;
 let lastQuotaSource: 'local' | 'authorized';
@@ -214,10 +210,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     logger.info(`Antigravity Cockpit v${version} - Systems Online`);
-
-    unifiedAccountManager = new AccountManager(context);
-    unifiedCockpitToolsImporter = new CockpitToolsImporter(unifiedAccountManager);
-    context.subscriptions.push({ dispose: () => unifiedAccountManager.dispose() });
 
     hunter = new ProcessHunter();
     reactor = new ReactorCore();
@@ -385,23 +377,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
         vscode.commands.registerCommand('agCockpit.autoImportCockpitAccounts', async (options?: { silent?: boolean }) => {
             const silent = Boolean(options?.silent);
-            const sharedDir = unifiedCockpitToolsImporter.detectDataDir() ?? getCockpitToolsSharedDir();
+            const sharedDir = getCockpitToolsSharedDir();
 
             try {
-                const allAccounts = readAllCockpitAccountsFromDir(sharedDir);
-                const unifiedImport = await unifiedCockpitToolsImporter.importAll(sharedDir);
-                let entries: CockpitToolsIndexEntry[] = [];
-                let tokenItems: CockpitTokenItem[] = [];
-                let antigravitySyncWarning: string | null = null;
-
-                try {
-                    const collected = collectCockpitToolsAntigravityTokenItems(sharedDir);
-                    entries = collected.entries;
-                    tokenItems = collected.tokenItems;
-                } catch (error) {
-                    antigravitySyncWarning = error instanceof Error ? error.message : String(error);
-                    logger.info(`[CockpitTools] Antigravity token sync skipped: ${antigravitySyncWarning}`);
-                }
+                const allAccounts = readAllCockpitAccounts();
+                const { entries, tokenItems } = collectCockpitToolsAntigravityTokenItems(sharedDir);
 
                 let antigravityImport = { imported: 0, skipped: 0 };
                 if (tokenItems.length > 0) {
@@ -418,17 +398,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 if (!silent) {
                     const summaryParts = [
                         `Loaded ${allAccounts.totalAccounts} account(s) across ${allAccounts.sections.length} provider(s)`,
-                        `Unified store +${unifiedImport.added} / ~${unifiedImport.updated}`,
                         `Antigravity synced ${antigravityImport.imported}`,
                     ];
                     if (antigravityImport.skipped > 0) {
                         summaryParts.push(`${antigravityImport.skipped} skipped`);
-                    }
-                    if (unifiedImport.errors.length > 0) {
-                        summaryParts.push(`${unifiedImport.errors.length} local import warning(s)`);
-                    }
-                    if (antigravitySyncWarning) {
-                        summaryParts.push('Antigravity token sync skipped');
                     }
                     if (entries.length > 0 && tokenItems.length === 0) {
                         summaryParts.push('no valid Antigravity refresh tokens found');
@@ -436,7 +409,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                     vscode.window.showInformationMessage(`Cockpit Tools import: ${summaryParts.join(' · ')}`);
                 } else {
                     logger.info(
-                        `[CockpitTools] Startup auto-import complete: providers=${allAccounts.sections.length}, total=${allAccounts.totalAccounts}, unifiedAdded=${unifiedImport.added}, unifiedUpdated=${unifiedImport.updated}, unifiedWarnings=${unifiedImport.errors.length}, antigravityImported=${antigravityImport.imported}, antigravitySkipped=${antigravityImport.skipped}, antigravitySyncWarning=${antigravitySyncWarning ?? 'none'}`,
+                        `[CockpitTools] Startup auto-import complete: providers=${allAccounts.sections.length}, total=${allAccounts.totalAccounts}, antigravityImported=${antigravityImport.imported}, antigravitySkipped=${antigravityImport.skipped}`,
                     );
                 }
             } catch (error) {

@@ -55,27 +55,6 @@ To roll back only this integration:
 2. Run `npm install` (if package metadata changed).
 3. Run `npm run build`.
 
-## Rollback unified Cockpit Tools importer integration
-
-This change set has a dedicated pre-change backup at:
-
-`docs/backups/2026-05-03-cockpit-unified-import/`
-
-To roll back the unified local-store import layer only:
-
-1. Restore these files from the backup copy:
-   - `src/types.ts`
-   - `src/cockpitToolsImporter.ts`
-   - `src/dashboardProvider.ts`
-   - `src/extension.ts`
-   - `src/services/importService.ts`
-   - `src/services/cockpitToolsAllAccounts.ts`
-   - `src/services/cockpitToolsAllAccounts.test.ts`
-   - `ROLLBACK.md`
-2. Delete `src/cockpitToolsImporter.test.ts` if it exists.
-3. Run `npm run build`.
-4. Run `npm test`.
-
 ## Rollback package.json identity
 
 Revert `name`, `displayName`, `description`, `version` back to:

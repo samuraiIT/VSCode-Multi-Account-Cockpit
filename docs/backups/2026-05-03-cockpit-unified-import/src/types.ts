@@ -48,47 +48,6 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   zed: 'Zed',
 };
 
-export type PlatformAlias =
-  | Platform
-  | 'github-copilot'
-  | 'github_copilot'
-  | 'gemini'
-  | 'codebuddy_cn'
-  | 'workbuddy';
-
-export const PLATFORM_ALIASES: Readonly<Record<PlatformAlias, Platform>> = {
-  antigravity: 'antigravity',
-  codex: 'codex',
-  copilot: 'copilot',
-  'github-copilot': 'copilot',
-  github_copilot: 'copilot',
-  windsurf: 'windsurf',
-  kiro: 'kiro',
-  cursor: 'cursor',
-  gemini: 'gemini-cli',
-  'gemini-cli': 'gemini-cli',
-  codebuddy: 'codebuddy',
-  'codebuddy-cn': 'codebuddy-cn',
-  codebuddy_cn: 'codebuddy-cn',
-  workbuddy: 'codebuddy-cn',
-  qoder: 'qoder',
-  trae: 'trae',
-  zed: 'zed',
-};
-
-export function normalizePlatformId(platform: string | null | undefined): Platform | null {
-  if (!platform) {
-    return null;
-  }
-
-  const normalized = platform.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  return PLATFORM_ALIASES[normalized as PlatformAlias] ?? null;
-}
-
 // ── Quota types ─────────────────────────────────────────────────────────────
 
 export type QuotaStatus = 'ok' | 'warning' | 'critical' | 'exhausted' | 'unknown';

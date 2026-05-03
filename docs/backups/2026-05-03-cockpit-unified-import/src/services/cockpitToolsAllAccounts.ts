@@ -50,7 +50,6 @@ export interface AllCockpitAccountsSnapshot {
     sections: CockpitProviderSection[];
     totalAccounts: number;
     loadedAt: number;
-    sourceDir: string;
 }
 
 interface GenericIndex {
@@ -298,7 +297,8 @@ function readProviderSection(sharedDir: string, config: ProviderConfig): Cockpit
  * Reads all Cockpit Tools account index files and returns a unified snapshot.
  * Never throws — errors per-provider are logged and that section is skipped.
  */
-export function readAllCockpitAccountsFromDir(sharedDir: string): AllCockpitAccountsSnapshot {
+export function readAllCockpitAccounts(): AllCockpitAccountsSnapshot {
+    const sharedDir = getCockpitToolsSharedDir();
     const sections: CockpitProviderSection[] = [];
 
     for (const config of PROVIDER_CONFIGS) {
@@ -319,10 +319,5 @@ export function readAllCockpitAccountsFromDir(sharedDir: string): AllCockpitAcco
         sections,
         totalAccounts,
         loadedAt: Date.now(),
-        sourceDir: sharedDir,
     };
-}
-
-export function readAllCockpitAccounts(): AllCockpitAccountsSnapshot {
-    return readAllCockpitAccountsFromDir(getCockpitToolsSharedDir());
 }
